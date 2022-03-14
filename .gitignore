@@ -1,0 +1,15 @@
+.dvc/config.local
+.dvc/cache
+.dvc/plots
+.dvc/tmp
+
+__pycache__
+*.py[cod]
+*.pt
+
+.idea
+venv
+
+*.egg-info
+build
+dist

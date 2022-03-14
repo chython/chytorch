@@ -1,0 +1,115 @@
+# -*- coding: utf-8 -*-
+#
+#  Copyright 2021, 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  This file is part of chytorch.
+#
+#  chytorch is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with this program; if not, see <https://www.gnu.org/licenses/>.
+#
+from chython import MoleculeContainer
+from numpy import minimum, nan_to_num, ones
+from scipy.sparse.csgraph import shortest_path
+from torch import IntTensor, Size, int32, ones as t_ones, zeros
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import Dataset
+from torchtyping import TensorType
+from typing import Sequence, Tuple
+
+
+def collate_molecules(batch) -> Tuple[TensorType['batch', 'tokens', int], TensorType['batch', 'tokens', int],
+                                      TensorType['batch', 'tokens', 'tokens', int]]:
+    """
+    Prepares batches of molecules.
+
+    Note: Distances padded only on right side. Bottom side filled by 1. Required for MHA softmax nan preventing.
+
+    :return: atoms, neighbors, distances.
+    """
+    atoms, neighbors, distances = [], [], []
+
+    for a, n, d in batch:
+        atoms.append(a)
+        neighbors.append(n)
+        distances.append(d)
+
+    pa = pad_sequence(atoms, True)
+    b, s = pa.shape
+    tmp = zeros(b, s, s, dtype=int32)
+    tmp[:, :, 0] = 1  # prevent nan in MHA softmax on padding
+    for i, d in enumerate(distances):
+        s = d.size(0)
+        tmp[i, :s, :s] = d
+    return pa, pad_sequence(neighbors, True), tmp
+
+
+class MoleculeDataset(Dataset):
+    __slots__ = ('molecules', 'distance_cutoff', 'add_cls')
+
+    def __init__(self, molecules: Sequence[MoleculeContainer], *, distance_cutoff: int = 8, add_cls: bool = True):
+        """
+        convert molecules to tuple of:
+            atoms vector with atomic numbers + 2,
+            neighbors vector with connected neighbored atoms count including implicit hydrogens count shifted by 2,
+            distance matrix with the shortest paths between atoms shifted by 2.
+
+        Note: atoms shifted to differentiate from padding equal to zero, special cls token equal to 1, and reserved MLM
+              task token equal to 2.
+              neighbors shifted to differentiate from padding equal to zero and reserved MLM task token equal to 1.
+              distances shifted to differentiate from padding equal to zero and from special distance equal to 1
+              that code unreachable atoms (e.g. salts).
+
+        :param molecules: map-like molecules collection
+        :param distance_cutoff: set distances greater than cutoff to cutoff value
+        :param add_cls: add special token at first position
+        """
+        self.molecules = molecules
+        self.distance_cutoff = distance_cutoff
+        self.add_cls = add_cls
+
+    def __getitem__(self, item: int) -> Tuple[TensorType['tokens', int], TensorType['tokens', int],
+                                              TensorType['tokens', 'tokens', int]]:
+        mol = self.molecules[item]
+        if self.add_cls:
+            atoms = t_ones(len(mol) + 1, dtype=int32)  # cls token = 1
+            neighbors = zeros(len(mol) + 1, dtype=int32)  # cls centrality-encoder disabled by padding trick
+        else:
+            atoms = IntTensor(len(mol))
+            neighbors = IntTensor(len(mol))
+
+        ngb = mol._bonds  # speedup
+        hgs = mol._hydrogens
+        for i, (n, a) in enumerate(mol.atoms(), self.add_cls):
+            atoms[i] = a.atomic_number + 2
+            neighbors[i] = len(ngb[n]) + (hgs[n] or 0) + 2  # treat bad valence as 0-hydrogen
+
+        sp = shortest_path(mol.adjacency_matrix(), method='FW', directed=False, unweighted=True) + 2
+        nan_to_num(sp, copy=False, posinf=1)
+        minimum(sp, self.distance_cutoff + 2, out=sp)
+        if self.add_cls:
+            tmp = ones((len(atoms), len(atoms)))
+            tmp[1:, 1:] = sp
+            sp = tmp
+        return atoms, neighbors, IntTensor(sp)
+
+    def __len__(self):
+        return len(self.molecules)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self.molecules)
+        elif dim is None:
+            return Size((len(self.molecules),))
+        raise IndexError
+
+
+__all__ = ['MoleculeDataset', 'collate_molecules']
