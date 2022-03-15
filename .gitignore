@@ -9,6 +9,7 @@ __pycache__
 
 .idea
 venv
+zoo
 
 *.egg-info
 build
