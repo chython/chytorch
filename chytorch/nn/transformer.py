@@ -34,7 +34,7 @@ class EncoderLayer(Module):
     """
     def __init__(self, d_model, nhead, dim_feedforward=3072, dropout=0.1, activation=GELU, layer_norm_eps=1e-5):
         super().__init__()
-        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
 
         self.linear1 = Linear(d_model, dim_feedforward)
         self.dropout = Dropout(dropout)
@@ -48,8 +48,10 @@ class EncoderLayer(Module):
 
     def forward(self, x: Tensor, attn_mask: Tensor, *,
                 need_embedding: bool = True, need_weights: bool = False) -> Tuple[Optional[Tensor], Optional[Tensor]]:
-        e, a = self.self_attn(x, x, x, attn_mask=attn_mask, need_weights=need_weights)
+        t = x.transpose(1, 0)  # switch Batch and Sequence
+        e, a = self.self_attn(t, t, t, attn_mask=attn_mask, need_weights=need_weights)
         if need_embedding:
+            e = e.transpose(1, 0)  # switch Sequence and Batch
             e = self.norm1(x + self.dropout1(e))
             return self.norm2(e + self.dropout2(self.linear2(self.dropout(self.activation(self.linear1(e)))))), a
         return None, a

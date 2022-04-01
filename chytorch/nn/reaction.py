@@ -16,7 +16,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from torch import zeros_like, float as t_float, inf
+from math import inf
+from torch import zeros_like, float as t_float
 from torch.nn import Embedding, GELU, Module
 from torchtyping import TensorType
 from typing import Tuple, Union

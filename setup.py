@@ -23,14 +23,14 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name='chytorch',
-    version='1.4',
+    version='1.5',
     packages=find_namespace_packages(include=('chytorch.*',)),
     url='https://github.com/chython/chytorch',
     license='LGPLv3',
     author='Dr. Ramil Nugmanov',
     author_email='nougmanoff@protonmail.com',
     python_requires='>=3.8',
-    install_requires=['torchtyping>=0.1.4', 'chython>=1.17', 'torch>=1.10', 'scipy>=1.7', 'numpy>=1.20', 'lmdb>=1.2.1'],
+    install_requires=['torchtyping>=0.1.4', 'chython>=1.17', 'torch>=1.8', 'scipy>=1.7', 'numpy>=1.20', 'lmdb>=1.2.1'],
     package_data={'chytorch.zoo': ['README.md']},
     zip_safe=False,
     long_description=(Path(__file__).parent / 'README.md').read_text('utf8'),
