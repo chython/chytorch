@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2021 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2021, 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -17,15 +17,16 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from math import cos, pi
+from torch.optim.lr_scheduler import _LRScheduler
 
 
-class WarmUpCosine:
+class WarmUpCosine(_LRScheduler):
     """
     Warm-Up with non-periodic Cosine.
 
     Note: some code copy-pasted from torch.optim.lr_scheduler.
     """
-    def __init__(self, optimizer, decrease_coef=.01, warmup=100, period=1000, last_epoch=-1, logger=None):
+    def __init__(self, optimizer, decrease_coef=.01, warmup=100, period=1000, last_epoch=-1):
         """
         :param warmup: number of batches/epochs for linear lr warm up.
         :param period: number of batches/epochs for decreasing from lr to decrease_coef * lr.
@@ -35,7 +36,6 @@ class WarmUpCosine:
         self.decrease_coef = decrease_coef
         self.warmup = warmup
         self.period = period
-        self.logger = logger
 
         if last_epoch == -1:
             for group in optimizer.param_groups:
@@ -46,24 +46,12 @@ class WarmUpCosine:
         self._period_warmup = period + warmup
         self.step()
 
-    def state_dict(self):
-        return {key: value for key, value in self.__dict__.items() if key != 'optimizer'}
-
-    def load_state_dict(self, state_dict):
-        self.__dict__.update(state_dict)
-
-    def get_last_lr(self):
-        return self._last_lr
-
     def step(self):
         self.last_epoch += 1
         self._last_lr = values = self.get_lr()
 
         for i, (group, lr) in enumerate(zip(self.optimizer.param_groups, values)):
             group['lr'] = lr
-        if self.logger is not None:
-            for i, v in enumerate(values):
-                self.logger(f'scheduler_param_{i}', v)
 
     def get_lr(self):
         if self.last_epoch == 0:
