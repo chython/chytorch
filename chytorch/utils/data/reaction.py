@@ -22,7 +22,7 @@ from torch import IntTensor, cat, zeros, int32, Size
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, Union
 from .molecule import MoleculeDataset
 
 
@@ -55,7 +55,8 @@ def collate_reactions(batch) -> Tuple[TensorType['batch', 'tokens', int],
 class ReactionDataset(Dataset):
     __slots__ = ('reactions', 'distance_cutoff', 'add_cls')
 
-    def __init__(self, reactions: Sequence[ReactionContainer], *, distance_cutoff: int = 8, add_cls: bool = True):
+    def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, distance_cutoff: int = 10,
+                 add_cls: bool = True, unpack: bool = False):
         """
         convert reactions to tuple of:
             atoms, neighbors and distances tensors similar to molecule dataset.
@@ -69,10 +70,13 @@ class ReactionDataset(Dataset):
         self.reactions = reactions
         self.distance_cutoff = distance_cutoff
         self.add_cls = add_cls
+        self.unpack = unpack
 
     def __getitem__(self, item: int) -> Tuple[TensorType['tokens', int], TensorType['tokens', int],
                                               TensorType['tokens', 'tokens', int], TensorType['tokens', int]]:
         rxn = self.reactions[item]
+        if self.unpack:
+            rxn = ReactionContainer.unpack(rxn)
         molecules = MoleculeDataset(rxn.reactants + rxn.products,
                                     distance_cutoff=self.distance_cutoff, add_cls=self.add_cls)
 

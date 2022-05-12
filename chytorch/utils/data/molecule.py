@@ -23,7 +23,7 @@ from torch import IntTensor, Size, int32, ones as t_ones, zeros
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, Union
 
 
 def collate_molecules(batch) -> Tuple[TensorType['batch', 'tokens', int], TensorType['batch', 'tokens', int],
@@ -55,7 +55,8 @@ def collate_molecules(batch) -> Tuple[TensorType['batch', 'tokens', int], Tensor
 class MoleculeDataset(Dataset):
     __slots__ = ('molecules', 'distance_cutoff', 'add_cls')
 
-    def __init__(self, molecules: Sequence[MoleculeContainer], *, distance_cutoff: int = 8, add_cls: bool = True):
+    def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *, distance_cutoff: int = 10,
+                 add_cls: bool = True, unpack: bool = False):
         """
         convert molecules to tuple of:
             atoms vector with atomic numbers + 2,
@@ -71,14 +72,18 @@ class MoleculeDataset(Dataset):
         :param molecules: map-like molecules collection
         :param distance_cutoff: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position
+        :param unpack: unpack molecules
         """
         self.molecules = molecules
         self.distance_cutoff = distance_cutoff
         self.add_cls = add_cls
+        self.unpack = unpack
 
     def __getitem__(self, item: int) -> Tuple[TensorType['tokens', int], TensorType['tokens', int],
                                               TensorType['tokens', 'tokens', int]]:
         mol = self.molecules[item]
+        if self.unpack:
+            mol = MoleculeContainer.unpack(mol)
         if self.add_cls:
             atoms = t_ones(len(mol) + 1, dtype=int32)  # cls token = 1
             neighbors = zeros(len(mol) + 1, dtype=int32)  # cls centrality-encoder disabled by padding trick

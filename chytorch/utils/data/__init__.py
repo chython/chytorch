@@ -16,11 +16,16 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from torch import Size
+from typing import List
 from .molecule import *
 from .reaction import *
 
 
 def chained_collate(*collate_fns):
+    """
+    Collate batch of tuples with different data structures by different collate functions.
+    """
     def w(batch):
         sub_batches = [[] for _ in collate_fns]
         for x in batch:
@@ -30,4 +35,20 @@ def chained_collate(*collate_fns):
     return w
 
 
-__all__ = ['MoleculeDataset', 'ReactionDataset', 'collate_molecules', 'collate_reactions', 'chained_collate']
+class SizedList(List):
+    """
+    List with tensor-like size method.
+    """
+    def __init__(self, data):
+        super().__init__(data)
+
+    def size(self, dim=None):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
+
+__all__ = ['MoleculeDataset', 'ReactionDataset', 'SizedList',
+           'collate_molecules', 'collate_reactions', 'chained_collate']
