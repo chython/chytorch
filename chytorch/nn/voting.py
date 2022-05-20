@@ -22,14 +22,15 @@ from torch.nn.functional import cross_entropy, l1_loss, softmax
 
 
 class VotingRegressor(Module):
-    def __init__(self, ensemble: int = 10, hidden: int = 256,
-                 dropout: float = 0.5, activation=GELU, layer_norm_eps: float = 1e-5):
+    def __init__(self, ensemble: int = 10, hidden: int = 256, dropout: float = .5,
+                 activation=GELU, layer_norm_eps: float = 1e-5, loss_function=l1_loss):
         super().__init__()
         self.linear1 = LazyLinear(hidden * ensemble)
         self.layer_norm = LayerNorm(hidden, layer_norm_eps)
         self.activation = activation()
         self.dropout = Dropout(dropout)
         self.linear2 = Linear(hidden, ensemble)
+        self.loss_function = loss_function
 
         self._ensemble = ensemble
         self._hidden = hidden
@@ -43,9 +44,9 @@ class VotingRegressor(Module):
         # N x B x 1 >> N x B >> B x N
         return bmm(x, w).squeeze(-1).transpose(0, 1).contiguous() + self.linear2.bias
 
-    def loss(self, x, y, loss=l1_loss):
+    def loss(self, x, y):
         p = self.forward(x)
-        return loss(p, y.expand(p.size()))
+        return self.loss_function(p, y.expand(p.size()))
 
     @no_grad()
     def predict(self, x, return_std: bool = False):
@@ -57,13 +58,14 @@ class VotingRegressor(Module):
 
 class VotingClassifier(Module):
     def __init__(self, ensemble: int = 10, hidden: int = 256, n_classes: int = 2,
-                 dropout: float = 0.5, activation=GELU, layer_norm_eps: float = 1e-5):
+                 dropout: float = .5, activation=GELU, layer_norm_eps: float = 1e-5, loss_function=cross_entropy):
         super().__init__()
         self.linear1 = LazyLinear(hidden * ensemble)
         self.layer_norm = LayerNorm(hidden, layer_norm_eps)
         self.activation = activation()
         self.dropout = Dropout(dropout)
         self.linear2 = Linear(hidden, ensemble * n_classes)
+        self.loss_function = loss_function
 
         self._n_classes = n_classes
         self._ensemble = ensemble
@@ -78,10 +80,10 @@ class VotingClassifier(Module):
         # N x B x C >> B x N x C
         return bmm(x, w).transpose(0, 1).contiguous() + self.linear2.bias.view(self._ensemble, -1)
 
-    def loss(self, x, y, loss=cross_entropy):
+    def loss(self, x, y):
         p = self.forward(x).view(-1, self._n_classes)  # B x N x C >> B * N x C
         t = y.unsqueeze(-1).expand(-1, self._ensemble).flatten()  # B >> B x 1 >> B x N >> N * B
-        return loss(p, t)
+        return self.loss_function(p, t)
 
     @no_grad()
     def predict(self, x):
