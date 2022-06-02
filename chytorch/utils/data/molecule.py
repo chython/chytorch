@@ -56,7 +56,8 @@ class MoleculeDataset(Dataset):
     __slots__ = ('molecules', 'distance_cutoff', 'add_cls')
 
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *, distance_cutoff: int = 10,
-                 add_cls: bool = True, unpack: bool = False):
+                 add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
+                 unpack: bool = False):
         """
         convert molecules to tuple of:
             atoms vector with atomic numbers + 2,
@@ -72,11 +73,15 @@ class MoleculeDataset(Dataset):
         :param molecules: map-like molecules collection
         :param distance_cutoff: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position
+        :param symmetric_cls: do bidirectional attention of cls to atoms and back
+        :param disable_components_interaction: treat components as isolated molecules
         :param unpack: unpack molecules
         """
         self.molecules = molecules
         self.distance_cutoff = distance_cutoff
         self.add_cls = add_cls
+        self.symmetric_cls = symmetric_cls
+        self.disable_components_interaction = disable_components_interaction
         self.unpack = unpack
 
     def __getitem__(self, item: int) -> Tuple[TensorType['tokens', int], TensorType['tokens', int],
@@ -91,17 +96,19 @@ class MoleculeDataset(Dataset):
             atoms = IntTensor(len(mol))
             neighbors = IntTensor(len(mol))
 
-        ngb = mol._bonds  # speedup
-        hgs = mol._hydrogens
+        ngb = mol._bonds  # noqa speedup
+        hgs = mol._hydrogens  # noqa
         for i, (n, a) in enumerate(mol.atoms(), self.add_cls):
             atoms[i] = a.atomic_number + 2
             neighbors[i] = len(ngb[n]) + (hgs[n] or 0) + 2  # treat bad valence as 0-hydrogen
 
         sp = shortest_path(mol.adjacency_matrix(), method='FW', directed=False, unweighted=True) + 2
-        nan_to_num(sp, copy=False, posinf=1)
+        nan_to_num(sp, copy=False, posinf=(0 if self.disable_components_interaction else 1))
         minimum(sp, self.distance_cutoff + 2, out=sp)
         if self.add_cls:
             tmp = ones((len(atoms), len(atoms)))
+            if not self.symmetric_cls:
+                tmp[1:, 0] = 0  # disable CLS to atom attention by padding trick
             tmp[1:, 1:] = sp
             sp = tmp
         return atoms, neighbors, IntTensor(sp)

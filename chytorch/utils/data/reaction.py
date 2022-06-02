@@ -56,7 +56,8 @@ class ReactionDataset(Dataset):
     __slots__ = ('reactions', 'distance_cutoff', 'add_cls')
 
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, distance_cutoff: int = 10,
-                 add_cls: bool = True, unpack: bool = False):
+                 add_cls: bool = True, add_molecule_cls: bool = True, disable_components_interaction: bool = False,
+                 unpack: bool = False):
         """
         convert reactions to tuple of:
             atoms, neighbors and distances tensors similar to molecule dataset.
@@ -65,11 +66,17 @@ class ReactionDataset(Dataset):
 
         :param reactions: map-like reactions collection
         :param distance_cutoff: set distances greater than cutoff to cutoff value
-        :param add_cls: add special token at first position of each molecule
+        :param add_cls: add special token at first position
+        :param disable_components_interaction: treat molecule components as isolated molecules
+        :param add_molecule_cls: add special token at first position of each molecule
+
+        Note: symmetric_cls=False parameter unusable due to disabled molecule cls in reaction level.
         """
         self.reactions = reactions
         self.distance_cutoff = distance_cutoff
         self.add_cls = add_cls
+        self.add_molecule_cls = add_molecule_cls
+        self.disable_components_interaction = disable_components_interaction
         self.unpack = unpack
 
     def __getitem__(self, item: int) -> Tuple[TensorType['tokens', int], TensorType['tokens', int],
@@ -77,8 +84,9 @@ class ReactionDataset(Dataset):
         rxn = self.reactions[item]
         if self.unpack:
             rxn = ReactionContainer.unpack(rxn)
-        molecules = MoleculeDataset(rxn.reactants + rxn.products,
-                                    distance_cutoff=self.distance_cutoff, add_cls=self.add_cls)
+        molecules = MoleculeDataset(rxn.reactants + rxn.products, distance_cutoff=self.distance_cutoff,
+                                    disable_components_interaction=self.disable_components_interaction,
+                                    add_cls=self.add_molecule_cls)
 
         if self.add_cls:
             # disable rxn cls in molecules encoder
@@ -91,7 +99,7 @@ class ReactionDataset(Dataset):
             atoms.append(a)
             neighbors.append(n)
             distances.append(d)
-            if self.add_cls:
+            if self.add_molecule_cls:
                 roles.append(0)  # disable molecule cls in reaction encoder
             roles.extend(repeat(r, len(m)))
 
