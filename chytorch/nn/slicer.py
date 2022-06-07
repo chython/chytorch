@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2021, 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -16,11 +16,21 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from .activation import *
-from .molecule import *
-from .reaction import *
-from .slicer import *
-from .voting import *
+from torch import Tensor
+from torch.nn import Module
+from typing import Tuple, Union
 
 
-__all__ = ['MoleculeEncoder', 'ReactionEncoder', 'PulingHardtanh', 'VotingClassifier', 'VotingRegressor', 'Slicer']
+class Slicer(Module):
+    def __init__(self, slc: Tuple[Union[int, slice, Tuple[int, ...]], ...]):
+        """
+        Slice input tensor. For use with Sequential.
+        """
+        super().__init__()
+        self.slice = slc
+
+    def forward(self, x: Tensor):
+        return x.__getitem__(self.slice)
+
+
+__all__ = ['Slicer']

@@ -47,9 +47,18 @@ class ReactionEncoder(Module):
         self.nhead = n_ex_head
         self.num_layers = num_ex_layers
 
-    def forward(self, atoms: TensorType['batch', 'tokens', int], neighbors: TensorType['batch', 'tokens', int],
-                distances: TensorType['batch', 'tokens', 'tokens', int], roles: TensorType['batch', 'tokens', int], *,
-                need_embedding: bool = True, need_weights: bool = False) -> \
+    @property
+    def max_distance(self):
+        """
+        Distance cutoff in spatial encoder.
+        """
+        return self.molecule_encoder.max_distance
+
+    def forward(self, andrs: Tuple[TensorType['batch', 'tokens', int],
+                                   TensorType['batch', 'tokens', int],
+                                   TensorType['batch', 'tokens', 'tokens', int],
+                                   TensorType['batch', 'tokens', int]],
+                /, *, need_embedding: bool = True, need_weights: bool = False) -> \
             Union[TensorType['batch', 'tokens', 'embedding'],
                   TensorType['batch', 'tokens', 'tokens'],
                   Tuple[TensorType['batch', 'tokens', 'embedding'],
@@ -61,6 +70,7 @@ class ReactionEncoder(Module):
         """
         assert need_weights or need_embedding, 'at least weights or embeddings should be returned'
 
+        atoms, neighbors, distances, roles = andrs
         n = atoms.size(1)
         p_mask: TensorType['batch', 'tokens', float] = zeros_like(roles, dtype=t_float)
         p_mask.masked_fill_(roles == 0, -inf)

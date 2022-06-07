@@ -46,13 +46,19 @@ class MoleculeEncoder(Module):
         with no_grad():  # trick to disable padding attention
             self.spatial_encoder.weight[0].fill_(float('-inf'))
 
-    def forward(self, atoms: TensorType['batch', 'tokens', int],
-                neighbors: TensorType['batch', 'tokens', int],
-                distances: TensorType['batch', 'tokens', 'tokens', int], *, need_embedding: bool = True,
-                need_weights: bool = False) -> Union[TensorType['batch', 'tokens', 'embedding'],
-                                                     TensorType['batch', 'tokens', 'tokens'],
-                                                     Tuple[TensorType['batch', 'tokens', 'embedding'],
-                                                           TensorType['batch', 'tokens', 'tokens']]]:
+    @property
+    def max_distance(self):
+        """
+        Distance cutoff in spatial encoder.
+        """
+        return self.spatial_encoder.num_embeddings - 3
+
+    def forward(self, ands: Tuple[TensorType['batch', 'tokens', int],
+                                  TensorType['batch', 'tokens', int],
+                                  TensorType['batch', 'tokens', 'tokens', int]],
+                /, *, need_embedding: bool = True, need_weights: bool = False) -> \
+            Union[TensorType['batch', 'tokens', 'embedding'], TensorType['batch', 'tokens', 'tokens'],
+                  Tuple[TensorType['batch', 'tokens', 'embedding'], TensorType['batch', 'tokens', 'tokens']]]:
         """
         Use 0 for padding.
         Atoms should be coded by atomic numbers + 2. 1 can be used for cls token, 2 reserved for masks in MLM.
@@ -63,6 +69,7 @@ class MoleculeEncoder(Module):
         """
         assert need_weights or need_embedding, 'at least weights or embeddings should be returned'
 
+        atoms, neighbors, distances = ands
         n = atoms.size(1)
         d_mask: TensorType['batch', 'tokens', 'tokens', 'heads'] = self.spatial_encoder(distances)
         d_mask: TensorType['batch*heads', 'tokens', 'tokens'] = d_mask.permute(0, 3, 1, 2).reshape(-1, n, n)
