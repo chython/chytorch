@@ -22,9 +22,11 @@ from typing import Tuple, Union
 
 
 class Slicer(Module):
-    def __init__(self, slc: Tuple[Union[int, slice, Tuple[int, ...]], ...]):
+    def __init__(self, *slc: Union[int, slice, Tuple[int, ...]]):
         """
         Slice input tensor. For use with Sequential.
+
+        E.g. Slicer(slice(None), 0) equal to Tensor[:, 0]
         """
         super().__init__()
         self.slice = slc
