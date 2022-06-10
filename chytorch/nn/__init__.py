@@ -19,8 +19,10 @@
 from .activation import *
 from .molecule import *
 from .reaction import *
+from .sequence import *
 from .slicer import *
 from .voting import *
 
 
-__all__ = ['MoleculeEncoder', 'ReactionEncoder', 'PulingHardtanh', 'VotingClassifier', 'VotingRegressor', 'Slicer']
+__all__ = ['MoleculeEncoder', 'ReactionEncoder', 'PulingHardtanh', 'VotingClassifier', 'VotingRegressor', 'Slicer',
+           'SequenceDecoder']
