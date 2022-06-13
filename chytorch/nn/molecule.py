@@ -17,7 +17,7 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from torch import no_grad
-from torch.nn import Embedding, GELU, Module
+from torch.nn import Embedding, GELU, Module, ModuleList
 from torchtyping import TensorType
 from typing import Tuple, Union
 from .transformer import EncoderLayer
@@ -27,7 +27,7 @@ class MoleculeEncoder(Module):
     """
     Inspired by https://arxiv.org/pdf/2106.05234.pdf
     """
-    def __init__(self, *, max_neighbors: int = 14, max_distance: int = 10,
+    def __init__(self, *, max_neighbors: int = 14, max_distance: int = 10, shared_layers: bool = True,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
                  dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
         """
@@ -35,13 +35,19 @@ class MoleculeEncoder(Module):
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.
+        :param shared_layers: ALBERT-like encoder layer sharing.
         """
         super().__init__()
         self.atoms_encoder = Embedding(121, d_model, 0)
         self.centrality_encoder = Embedding(max_neighbors + 3, d_model, 0)
         self.spatial_encoder = Embedding(max_distance + 3, nhead, 0)
-        self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
-        self.num_layers = num_layers
+
+        if shared_layers:
+            self.layer = layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
+            self.layers = [layer] * num_layers
+        else:
+            self.layers = ModuleList(EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
+                                     for _ in range(num_layers))
 
         with no_grad():  # trick to disable padding attention
             self.spatial_encoder.weight[0].fill_(float('-inf'))
@@ -76,9 +82,9 @@ class MoleculeEncoder(Module):
 
         # cls token in neighbors coded by 0 to disable centrality encoding.
         x = self.atoms_encoder(atoms) + self.centrality_encoder(neighbors)
-        for _ in range(1, self.num_layers):
-            x, _ = self.layer(x, d_mask)
-        x, a = self.layer(x, d_mask, need_embedding=need_embedding, need_weights=need_weights)
+        for lr in self.layers[:-1]:
+            x, _ = lr(x, d_mask)
+        x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=need_weights)
         if need_embedding:
             if need_weights:
                 return x, a
