@@ -15,7 +15,7 @@ Pretrained models
 
 Chytorch main package doesn't include models zoo.
 Each model has its own named package and can be installed separately.
-Installed models can be imported from `chytorch.zoo.<model_name>.Model`.
+Installed models can be imported as `from chytorch.zoo.<model_name> import Model`.
 
 
 Usage
@@ -27,16 +27,14 @@ API is combination of `torch.nn.TransformerEncoderLayer` with `torch.nn.Transfor
 **Batch preparation:**
 
 `chytorch.utils.data.MoleculeDataset` and `chytorch.utils.data.ReactionDataset` - Map-like on-the-fly dataset generators for molecules and reactions.
-Supported `chython.MoleculeContainer` and `chython.ReactionContainer` objects.
+Supported `chython.MoleculeContainer` and `chython.ReactionContainer` objects, and bytes-packed forms.
 
 `chytorch.utils.data.collate_molecules` and `chytorch.utils.data.collate_reactions` - collate functions for `torch.utils.data.DataLoader`.
 
 Example:
 
-    from chython import SMILESRead
-
     data = []
-    for r in SMILESRead('data.smi'):
+    for r in chython.SMILESRead('data.smi'):
         r.canonicalize()  # fix aromaticity and functional groups
         data.append(r)
 
@@ -60,7 +58,7 @@ Reactions include additional tensor with reaction role codes for each token.
     encoder = chytorch.nn.MoleculeEncoder()
 
     for b in dl:
-        encoder(*b)
+        encoder(b)
 
 **Combine molecules and labels:**
 
