@@ -87,7 +87,7 @@ class ReactionEncoder(Module):
 
         # role is bert sentence encoder used to separate reactants from products and rxn CLS token coding.
         # multiplication by roles > 1 used to zeroing rxn and mol cls tokens and/or padding
-        x = self.molecule_encoder(atoms, neighbors, distances) * (roles > 1).unsqueeze(-1) + self.role_encoder(roles)
+        x = self.molecule_encoder((atoms, neighbors, distances)) * (roles > 1).unsqueeze(-1) + self.role_encoder(roles)
         for lr in self.layers[:-1]:
             x, _ = lr(x, p_mask)
         x, a = self.layers[-1](x, p_mask, need_embedding=need_embedding, need_weights=need_weights)

@@ -76,9 +76,8 @@ class MoleculeEncoder(Module):
         assert need_weights or need_embedding, 'at least weights or embeddings should be returned'
 
         atoms, neighbors, distances = ands
-        n = atoms.size(1)
         d_mask: TensorType['batch', 'tokens', 'tokens', 'heads'] = self.spatial_encoder(distances)
-        d_mask: TensorType['batch*heads', 'tokens', 'tokens'] = d_mask.permute(0, 3, 1, 2).reshape(-1, n, n)
+        d_mask: TensorType['batch*heads', 'tokens', 'tokens'] = d_mask.permute(0, 3, 1, 2).flatten(end_dim=1)
 
         # cls token in neighbors coded by 0 to disable centrality encoding.
         x = self.atoms_encoder(atoms) + self.centrality_encoder(neighbors)

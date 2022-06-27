@@ -53,8 +53,6 @@ def collate_reactions(batch) -> Tuple[TensorType['batch', 'tokens', int],
 
 
 class ReactionDataset(Dataset):
-    __slots__ = ('reactions', 'distance_cutoff', 'add_cls')
-
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, distance_cutoff: int = 10,
                  add_cls: bool = True, add_molecule_cls: bool = True, disable_components_interaction: bool = False,
                  unpack: bool = False):

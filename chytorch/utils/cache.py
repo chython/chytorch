@@ -47,8 +47,6 @@ class SequencedFileCache:
 
 
 class SequencedDBCache:
-    __slots__ = ('db', 'key', 'limit', 'tr', 'count')
-
     def __init__(self, db: Environment, *, limit: int = 100):
         self.db = db
         self.key = 0

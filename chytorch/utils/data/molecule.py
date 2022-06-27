@@ -53,8 +53,6 @@ def collate_molecules(batch) -> Tuple[TensorType['batch', 'tokens', int], Tensor
 
 
 class MoleculeDataset(Dataset):
-    __slots__ = ('molecules', 'distance_cutoff', 'add_cls')
-
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *, distance_cutoff: int = 10,
                  add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
                  unpack: bool = False):
