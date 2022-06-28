@@ -16,6 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from math import inf
 from torch import no_grad
 from torch.nn import Embedding, GELU, Module, ModuleList
 from torchtyping import TensorType
@@ -50,7 +51,7 @@ class MoleculeEncoder(Module):
                                      for _ in range(num_layers))
 
         with no_grad():  # trick to disable padding attention
-            self.spatial_encoder.weight[0].fill_(float('-inf'))
+            self.spatial_encoder.weight[0].fill_(-inf)
 
     @property
     def max_distance(self):
