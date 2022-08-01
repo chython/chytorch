@@ -26,8 +26,8 @@ from torchtyping import TensorType
 from typing import Sequence, Tuple, Union
 
 
-def collate_molecules(batch) -> Tuple[TensorType['batch', 'tokens', int], TensorType['batch', 'tokens', int],
-                                      TensorType['batch', 'tokens', 'tokens', int]]:
+def collate_molecules(batch) -> Tuple[TensorType['batch', 'atoms', int], TensorType['batch', 'atoms', int],
+                                      TensorType['batch', 'atoms', 'atoms', int]]:
     """
     Prepares batches of molecules.
 
@@ -82,8 +82,8 @@ class MoleculeDataset(Dataset):
         self.disable_components_interaction = disable_components_interaction
         self.unpack = unpack
 
-    def __getitem__(self, item: int) -> Tuple[TensorType['tokens', int], TensorType['tokens', int],
-                                              TensorType['tokens', 'tokens', int]]:
+    def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
+                                              TensorType['atoms', 'atoms', int]]:
         mol = self.molecules[item]
         if self.unpack:
             mol = MoleculeContainer.unpack(mol)

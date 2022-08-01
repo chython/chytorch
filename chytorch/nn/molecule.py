@@ -60,12 +60,12 @@ class MoleculeEncoder(Module):
         """
         return self.spatial_encoder.num_embeddings - 3
 
-    def forward(self, ands: Tuple[TensorType['batch', 'tokens', int],
-                                  TensorType['batch', 'tokens', int],
-                                  TensorType['batch', 'tokens', 'tokens', int]],
+    def forward(self, batch: Tuple[TensorType['batch', 'atoms', int],
+                                   TensorType['batch', 'atoms', int],
+                                   TensorType['batch', 'atoms', 'atoms', int]],
                 /, *, need_embedding: bool = True, need_weights: bool = False) -> \
-            Union[TensorType['batch', 'tokens', 'embedding'], TensorType['batch', 'tokens', 'tokens'],
-                  Tuple[TensorType['batch', 'tokens', 'embedding'], TensorType['batch', 'tokens', 'tokens']]]:
+            Union[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms'],
+                  Tuple[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms']]]:
         """
         Use 0 for padding.
         Atoms should be coded by atomic numbers + 2. 1 can be used for cls token, 2 reserved for masks in MLM.
@@ -76,13 +76,12 @@ class MoleculeEncoder(Module):
         """
         assert need_weights or need_embedding, 'at least weights or embeddings should be returned'
 
-        atoms, neighbors, distances = ands
-        d_mask: TensorType['batch', 'tokens', 'tokens', 'heads'] = self.spatial_encoder(distances)
-        d_mask: TensorType['batch*heads', 'tokens', 'tokens'] = d_mask.permute(0, 3, 1, 2).flatten(end_dim=1)
+        atoms, neighbors, distances = batch
+        d_mask = self.spatial_encoder(distances).permute(0, 3, 1, 2).flatten(end_dim=1)  # BxNxNxH > BxHxNxN > B*HxNxN
 
         # cls token in neighbors coded by 0 to disable centrality encoding.
         x = self.atoms_encoder(atoms) + self.centrality_encoder(neighbors)
-        for lr in self.layers[:-1]:
+        for lr in self.layers[:-1]:  # noqa
             x, _ = lr(x, d_mask)
         x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=need_weights)
         if need_embedding:

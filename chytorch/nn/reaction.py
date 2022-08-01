@@ -17,7 +17,7 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from math import inf
-from torch import zeros_like, float as t_float
+from torch import zeros_like, float as t_float, stack
 from torch.nn import Embedding, GELU, Module, ModuleList
 from torchtyping import TensorType
 from typing import Tuple, Union
@@ -62,35 +62,52 @@ class ReactionEncoder(Module):
         """
         return self.molecule_encoder.max_distance
 
-    def forward(self, andrs: Tuple[TensorType['batch', 'tokens', int],
-                                   TensorType['batch', 'tokens', int],
-                                   TensorType['batch', 'tokens', 'tokens', int],
-                                   TensorType['batch', 'tokens', int]],
-                /, *, need_embedding: bool = True, need_weights: bool = False) -> \
-            Union[TensorType['batch', 'tokens', 'embedding'],
-                  TensorType['batch', 'tokens', 'tokens'],
-                  Tuple[TensorType['batch', 'tokens', 'embedding'],
-                        TensorType['batch', 'tokens', 'tokens']]]:
+    def forward(self, batch: Tuple[TensorType['batch', 'atoms', int],
+                                   TensorType['batch', 'atoms', int],
+                                   TensorType['batch', 'atoms', 'atoms', int],
+                                   TensorType['batch', 'atoms', int]],
+                /, *, need_embedding: bool = True, need_weights: bool = False, averaged_weights: bool = False) -> \
+            Union[TensorType['batch', 'atoms', 'embedding'],
+                  TensorType['batch', 'atoms', 'atoms'],
+                  Tuple[TensorType['batch', 'atoms', 'embedding'],
+                        TensorType['batch', 'atoms', 'atoms']]]:
         """
         Use 0 for padding. Roles should be coded by 2 for reactants, 3 for products and 1 for special cls token.
         Distances - same as molecular encoder distances but batched diagonally.
          Used 0 for disabling sharing between molecules.
-        """
-        assert need_weights or need_embedding, 'at least weights or embeddings should be returned'
 
-        atoms, neighbors, distances, roles = andrs
+        :param batch: input reactions
+        :param need_embedding: return atoms embeddings
+        :param need_weights: return attention weights
+        :param averaged_weights: return averaged attentions from each layer, otherwise only last layer
+        """
+        if not need_weights:
+            assert not averaged_weights, 'averaging without need_weights'
+            assert need_embedding, 'at least weights or embeddings should be returned'
+
+        atoms, neighbors, distances, roles = batch
         n = atoms.size(1)
-        p_mask: TensorType['batch', 'tokens', float] = zeros_like(roles, dtype=t_float)
-        p_mask.masked_fill_(roles == 0, -inf)
-        p_mask: TensorType['batch*heads', 'tokens', 'tokens'] = p_mask.view(-1, 1, 1, n).\
-            expand(-1, self.nhead, n, -1).reshape(-1, n, n)
+        d_mask = zeros_like(roles, dtype=t_float).masked_fill_(roles == 0, -inf).view(-1, 1, 1, n)  # BxN > Bx1x1xN >
+        d_mask = d_mask.expand(-1, self.nhead, n, -1).flatten(end_dim=1)  # BxHxNxN > B*HxNxN
 
         # role is bert sentence encoder used to separate reactants from products and rxn CLS token coding.
-        # multiplication by roles > 1 used to zeroing rxn and mol cls tokens and/or padding
+        # multiplication by roles > 1 used to zeroing rxn cls token and padding
         x = self.molecule_encoder((atoms, neighbors, distances)) * (roles > 1).unsqueeze(-1) + self.role_encoder(roles)
-        for lr in self.layers[:-1]:
-            x, _ = lr(x, p_mask)
-        x, a = self.layers[-1](x, p_mask, need_embedding=need_embedding, need_weights=need_weights)
+
+        if averaged_weights:  # average attention weights from each layer
+            w = []
+            for lr in self.layers[:-1]:  # noqa
+                x, a = lr(x, d_mask, need_weights=True)
+                w.append(a)
+            x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=True)
+            w.append(a)
+            w = stack(w, dim=-1).mean(-1)
+            if need_embedding:
+                return x, w
+            return w
+        for lr in self.layers[:-1]:  # noqa
+            x, _ = lr(x, d_mask)
+        x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=need_weights)
         if need_embedding:
             if need_weights:
                 return x, a

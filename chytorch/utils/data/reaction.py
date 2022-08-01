@@ -26,10 +26,10 @@ from typing import Sequence, Tuple, Union
 from .molecule import MoleculeDataset
 
 
-def collate_reactions(batch) -> Tuple[TensorType['batch', 'tokens', int],
-                                      TensorType['batch', 'tokens', int],
-                                      TensorType['batch', 'tokens', 'tokens', int],
-                                      TensorType['batch', 'tokens', int]]:
+def collate_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
+                                      TensorType['batch', 'atoms', int],
+                                      TensorType['batch', 'atoms', 'atoms', int],
+                                      TensorType['batch', 'atoms', int]]:
     """
     Prepares batches of reactions.
 
@@ -54,8 +54,8 @@ def collate_reactions(batch) -> Tuple[TensorType['batch', 'tokens', int],
 
 class ReactionDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, distance_cutoff: int = 10,
-                 add_cls: bool = True, add_molecule_cls: bool = True, disable_components_interaction: bool = False,
-                 unpack: bool = False):
+                 add_cls: bool = True, add_molecule_cls: bool = True, symmetric_cls: bool = True,
+                 disable_components_interaction: bool = False, hide_molecule_cls: bool = True, unpack: bool = False):
         """
         convert reactions to tuple of:
             atoms, neighbors and distances tensors similar to molecule dataset.
@@ -65,26 +65,28 @@ class ReactionDataset(Dataset):
         :param reactions: map-like reactions collection
         :param distance_cutoff: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position
-        :param disable_components_interaction: treat molecule components as isolated molecules
         :param add_molecule_cls: add special token at first position of each molecule
-
-        Note: symmetric_cls=False parameter unusable due to disabled molecule cls in reaction level.
+        :param symmetric_cls: do bidirectional attention of molecular cls to atoms and back
+        :param disable_components_interaction: treat molecule components as isolated molecules
+        :param hide_molecule_cls: disable molecule cls in reaction lvl
         """
         self.reactions = reactions
         self.distance_cutoff = distance_cutoff
         self.add_cls = add_cls
         self.add_molecule_cls = add_molecule_cls
+        self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
+        self.hide_molecule_cls = hide_molecule_cls
         self.unpack = unpack
 
-    def __getitem__(self, item: int) -> Tuple[TensorType['tokens', int], TensorType['tokens', int],
-                                              TensorType['tokens', 'tokens', int], TensorType['tokens', int]]:
+    def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
+                                              TensorType['atoms', 'atoms', int], TensorType['atoms', int]]:
         rxn = self.reactions[item]
         if self.unpack:
             rxn = ReactionContainer.unpack(rxn)
         molecules = MoleculeDataset(rxn.reactants + rxn.products, distance_cutoff=self.distance_cutoff,
-                                    disable_components_interaction=self.disable_components_interaction,
-                                    add_cls=self.add_molecule_cls)
+                                    add_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
+                                    disable_components_interaction=self.disable_components_interaction)
 
         if self.add_cls:
             # disable rxn cls in molecules encoder
@@ -98,7 +100,8 @@ class ReactionDataset(Dataset):
             neighbors.append(n)
             distances.append(d)
             if self.add_molecule_cls:
-                roles.append(0)  # disable molecule cls in reaction encoder
+                # (dis|en)able molecule cls in reaction encoder
+                roles.append(0 if self.hide_molecule_cls else r)
             roles.extend(repeat(r, len(m)))
 
         tmp = zeros(len(roles), len(roles), dtype=int32)
