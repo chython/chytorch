@@ -17,6 +17,7 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from .activation import *
+from .converters import *
 from .molecule import *
 from .reaction import *
 from .sequence import *
@@ -25,4 +26,4 @@ from .voting import *
 
 
 __all__ = ['MoleculeEncoder', 'ReactionEncoder', 'PulingHardtanh', 'VotingClassifier', 'VotingRegressor', 'Slicer',
-           'SequenceDecoder']
+           'SequenceDecoder', 'Converters']
