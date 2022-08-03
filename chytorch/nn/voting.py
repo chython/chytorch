@@ -152,7 +152,7 @@ class BinaryVotingClassifier(Module):
 
     def forward(self, x):
         """
-        Returns ensemble of predictions in shape [Batch x Ensemble x Classes].
+        Returns ensemble of predictions in shape [Batch x Ensemble].
         """
         # B x E >> B x N*H >> B x N x H >> N x B x H
         x = self.linear1(x).view(-1, self._ensemble, self._hidden).transpose(0, 1)
