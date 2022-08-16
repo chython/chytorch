@@ -16,9 +16,9 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from torch import bmm, no_grad
+from torch import bmm, no_grad, sigmoid
 from torch.nn import Dropout, GELU, LayerNorm, LazyLinear, Linear, Module
-from torch.nn.functional import cross_entropy, l1_loss, softmax, binary_cross_entropy_with_logits, sigmoid
+from torch.nn.functional import cross_entropy, l1_loss, softmax, binary_cross_entropy_with_logits
 
 
 class VotingRegressor(Module):
