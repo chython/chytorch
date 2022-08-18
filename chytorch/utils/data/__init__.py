@@ -53,4 +53,5 @@ class SizedList(List):
 
 
 __all__ = ['MoleculeDataset', 'ReactionDataset', 'ContrastiveDataset', 'PermutedReactionDataset', 'SizedList',
-           'collate_molecules', 'collate_reactions', 'contrastive_collate', 'collate_permuted_reactions', 'chained_collate']
+           'collate_molecules', 'collate_reactions', 'contrastive_collate', 'collate_permuted_reactions',
+           'chained_collate']
