@@ -41,7 +41,7 @@ class ContrastiveDataset(Dataset):
                  add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
                  unpack: bool = False):
         """
-        Prepare pairs of similar molecules.
+        Prepare pairs of "similar" molecules from predefined list of groups.
         For multiple similar molecules this dataset enumerate all possible pairs.
         For single element in list molecule returned twice.
 
