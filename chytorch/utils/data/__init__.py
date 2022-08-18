@@ -20,6 +20,7 @@ from torch import Size
 from typing import List
 from .molecule import *
 from .reaction import *
+from .permuted_reaction import *
 
 
 def chained_collate(*collate_fns):
@@ -50,5 +51,5 @@ class SizedList(List):
         raise IndexError
 
 
-__all__ = ['MoleculeDataset', 'ReactionDataset', 'SizedList',
-           'collate_molecules', 'collate_reactions', 'chained_collate']
+__all__ = ['MoleculeDataset', 'ReactionDataset', 'PermutedReactionDataset', 'SizedList',
+           'collate_molecules', 'collate_reactions', 'chained_collate', 'collate_permuted_reactions']
