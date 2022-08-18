@@ -18,6 +18,7 @@
 #
 from torch import Size
 from typing import List
+from .contrastive import *
 from .molecule import *
 from .reaction import *
 from .permuted_reaction import *
@@ -51,5 +52,5 @@ class SizedList(List):
         raise IndexError
 
 
-__all__ = ['MoleculeDataset', 'ReactionDataset', 'PermutedReactionDataset', 'SizedList',
-           'collate_molecules', 'collate_reactions', 'chained_collate', 'collate_permuted_reactions']
+__all__ = ['MoleculeDataset', 'ReactionDataset', 'ContrastiveDataset', 'PermutedReactionDataset', 'SizedList',
+           'collate_molecules', 'collate_reactions', 'contrastive_collate', 'collate_permuted_reactions', 'chained_collate']
