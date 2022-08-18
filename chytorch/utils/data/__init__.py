@@ -21,6 +21,7 @@ from typing import List
 from .contrastive import *
 from .molecule import *
 from .reaction import *
+from .permuted_reaction import *
 
 
 def chained_collate(*collate_fns):
@@ -51,5 +52,6 @@ class SizedList(List):
         raise IndexError
 
 
-__all__ = ['MoleculeDataset', 'ReactionDataset', 'ContrastiveDataset', 'SizedList',
-           'collate_molecules', 'collate_reactions', 'contrastive_collate', 'chained_collate']
+__all__ = ['MoleculeDataset', 'ReactionDataset', 'ContrastiveDataset', 'PermutedReactionDataset', 'SizedList',
+           'collate_molecules', 'collate_reactions', 'contrastive_collate', 'collate_permuted_reactions',
+           'chained_collate']
