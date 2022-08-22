@@ -37,7 +37,7 @@ def contrastive_collate(batch) -> Tuple[TensorType['2*batch', 'atoms', int], Ten
 
 
 class ContrastiveDataset(Dataset):
-    def __init__(self, data: List[List[Union[bytes, MoleculeContainer]]], distance_cutoff: int = 10,
+    def __init__(self, molecules: List[List[Union[bytes, MoleculeContainer]]], distance_cutoff: int = 10,
                  add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
                  unpack: bool = False):
         """
@@ -45,11 +45,11 @@ class ContrastiveDataset(Dataset):
         For multiple similar molecules this dataset enumerate all possible pairs.
         For single element in list molecule returned twice.
 
-        :param data: list of lists of similar (by any means) molecules.
+        :param molecules: list of lists of similar (by any means) molecules.
 
         See MoleculeDataset for other params description.
         """
-        self.data = data
+        self.molecules = molecules
         self.distance_cutoff = distance_cutoff
         self.add_cls = add_cls
         self.symmetric_cls = symmetric_cls
@@ -57,7 +57,7 @@ class ContrastiveDataset(Dataset):
         self.unpack = unpack
 
         self.total = total = []
-        for i, x in enumerate(data):
+        for i, x in enumerate(molecules):
             if (n := len(x)) <= 2:  # unique mol
                 total.append((i, 0))
             else:
@@ -74,7 +74,7 @@ class ContrastiveDataset(Dataset):
                                          Tuple[TensorType['atoms', int], TensorType['atoms', int],
                                                TensorType['atoms', 'atoms', int]]]:
         i, p = self.total[item]
-        mols = self.data[i]
+        mols = self.molecules[i]
         if (n := len(mols)) == 1:  # no pairs
             m = MoleculeDataset([MoleculeContainer.unpack(mols[0])], distance_cutoff=self.distance_cutoff,
                                 add_cls=self.add_cls, symmetric_cls=self.symmetric_cls, unpack=self.unpack,

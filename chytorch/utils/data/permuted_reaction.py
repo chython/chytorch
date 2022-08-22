@@ -92,18 +92,20 @@ def collate_permuted_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int]
                                                TensorType['batch', 'atoms', int],
                                                TensorType['batch', 'atoms', 'atoms', int],
                                                TensorType['batch', 'atoms', int],
-                                               TensorType['batch', 'atoms', int]]:
+                                               TensorType['batch*atoms', int]]:
     """
     Prepares batches of permuted reactions.
 
-    :return: atoms, neighbors, distances, atoms roles, and atoms replacement.
+    :return: atoms, neighbors, distances, atoms roles, and atoms replacement legend.
+
+    Note: cls and padding not included into legend.
     """
     return *collate_reactions([x[:4] for x in batch]), cat([x[-1] for x in batch])
 
 
 class PermutedReactionDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, rate: float = .15,
-                 only_product: bool = True, distance_cutoff: int = 10, add_cls: bool = True,
+                 only_product: bool = False, distance_cutoff: int = 10, add_cls: bool = True,
                  add_molecule_cls: bool = True, symmetric_cls: bool = True,
                  disable_components_interaction: bool = False, hide_molecule_cls: bool = True, unpack: bool = False):
         """
