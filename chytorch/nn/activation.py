@@ -22,7 +22,7 @@ from .functional import puling_hardtanh
 
 class PulingHardtanh(Module):
     """
-    leaky clamp nn.module wrapper
+    Hardtanh with inside-range puling gradient
     """
     def __init__(self, mn, mx):
         super().__init__()

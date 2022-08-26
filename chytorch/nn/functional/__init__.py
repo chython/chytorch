@@ -16,8 +16,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from .puling_hardtanh import *
 from .contrastive import *
+from .puling_hardtanh import *
 
 
 __all__ = ['puling_hardtanh', 'contrastive_loss']

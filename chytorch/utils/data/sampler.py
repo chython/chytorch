@@ -29,7 +29,7 @@ from .reaction import ReactionDataset
 
 class Mixin:
     def __init__(self, *args, **kwargs):
-        if True or isinstance(self.dataset, MoleculeDataset):
+        if isinstance(self.dataset, MoleculeDataset):
             if self.dataset.unpack:
                 # 12 bit - atoms count
                 self.sizes = [MoleculeContainer.pack_len(m) for m in self.dataset.molecules]
