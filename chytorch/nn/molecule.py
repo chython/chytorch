@@ -28,7 +28,7 @@ class MoleculeEncoder(Module):
     """
     Inspired by https://arxiv.org/pdf/2106.05234.pdf
     """
-    def __init__(self, *, max_neighbors: int = 14, max_distance: int = 10, shared_layers: bool = True,
+    def __init__(self, *, max_neighbors: int = 14, max_distance: int = 10, shared_weights: bool = True,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
                  dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
         """
@@ -36,16 +36,16 @@ class MoleculeEncoder(Module):
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.
-        :param shared_layers: ALBERT-like encoder layer sharing.
+        :param shared_weights: ALBERT-like encoder weights sharing.
         """
         super().__init__()
         self.atoms_encoder = Embedding(121, d_model, 0)
         self.centrality_encoder = Embedding(max_neighbors + 3, d_model, 0)
         self.spatial_encoder = Embedding(max_distance + 3, nhead, 0)
 
-        if shared_layers:
-            self.layer = layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
-            self.layers = [layer] * num_layers
+        if shared_weights:
+            self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
+            self.layers = [self.layer] * num_layers
         else:
             self.layers = ModuleList(EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
                                      for _ in range(num_layers))

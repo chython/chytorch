@@ -26,10 +26,10 @@ from .transformer import EncoderLayer
 
 
 class ReactionEncoder(Module):
-    def __init__(self, max_neighbors: int = 14, max_distance: int = 10, d_model: int = 1024,
-                 n_in_head: int = 16, n_ex_head: int = 4, shared_in_layers: bool = True, shared_ex_layers: bool = True,
-                 num_in_layers: int = 8, num_ex_layers: int = 8, dim_feedforward: int = 3072, dropout: float = 0.1,
-                 activation=GELU, layer_norm_eps: float = 1e-5):
+    def __init__(self, max_neighbors: int = 14, max_distance: int = 10, d_model: int = 1024, n_in_head: int = 16,
+                 n_ex_head: int = 4, shared_in_weights: bool = True, shared_ex_weights: bool = True,
+                 shared_layers: bool = False, num_in_layers: int = 8, num_ex_layers: int = 8,
+                 dim_feedforward: int = 3072, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
         """
         Reaction TransformerEncoder layer.
 
@@ -37,19 +37,28 @@ class ReactionEncoder(Module):
         :param max_distance: maximal distance between atoms.
         :param num_in_layers: intramolecular layers count
         :param num_ex_layers: reaction-level layers count
-        :param shared_in_layers: ALBERT-like intramolecular encoder layer sharing.
-        :param shared_ex_layers: reaction-level encoder layer sharing.
+        :param shared_in_weights: ALBERT-like intramolecular encoder layer sharing.
+        :param shared_ex_weights: ALBERT-like reaction-level encoder layer sharing.
+        :param shared_layers: Use the same encoder in molecule and reaction parts.
         """
+        if shared_layers:
+            assert shared_in_weights == shared_ex_weights, 'use equal weights sharing mode'
+            assert n_in_head == n_ex_head, 'use equal heads count'
         super().__init__()
         self.molecule_encoder = MoleculeEncoder(max_neighbors=max_neighbors, max_distance=max_distance, d_model=d_model,
                                                 nhead=n_in_head, num_layers=num_in_layers,
                                                 dim_feedforward=dim_feedforward, dropout=dropout, activation=activation,
-                                                layer_norm_eps=layer_norm_eps, shared_layers=shared_in_layers)
+                                                layer_norm_eps=layer_norm_eps, shared_weights=shared_in_weights)
         self.role_encoder = Embedding(4, d_model, 0)
 
-        if shared_ex_layers:
-            self.layer = layer = EncoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation, layer_norm_eps)
-            self.layers = [layer] * num_ex_layers
+        if shared_layers:
+            if shared_ex_weights:
+                self.layers = self.molecule_encoder.layers
+            else:  # hide from parameters lookup
+                self.layers = list(self.molecule_encoder.layers)
+        elif shared_ex_weights:
+            self.layer = EncoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation, layer_norm_eps)
+            self.layers = [self.layer] * num_ex_layers
         else:
             self.layers = ModuleList(EncoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation,
                                                   layer_norm_eps) for _ in range(num_ex_layers))
