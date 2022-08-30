@@ -28,7 +28,7 @@ class MoleculeEncoder(Module):
     """
     Inspired by https://arxiv.org/pdf/2106.05234.pdf
     """
-    def __init__(self, *, max_neighbors: int = 14, max_distance: int = 10, shared_weights: bool = True,
+    def __init__(self, max_neighbors: int = 14, max_distance: int = 10, shared_weights: bool = True,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
                  dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
         """

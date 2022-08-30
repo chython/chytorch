@@ -39,7 +39,7 @@ def contrastive_collate(batch) -> Tuple[TensorType['2*batch', 'atoms', int], Ten
 
 
 class ContrastiveDataset(Dataset):
-    def __init__(self, molecules: List[List[Union[bytes, MoleculeContainer]]], distance_cutoff: int = 10,
+    def __init__(self, molecules: List[List[Union[bytes, MoleculeContainer]]], *, distance_cutoff: int = 10,
                  add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
                  unpack: bool = False):
         """
@@ -103,10 +103,9 @@ class ContrastiveDataset(Dataset):
 
 
 class ContrastiveMethylDataset(Dataset):
-    def __init__(self, molecules: List[Union[bytes, MoleculeContainer]], rate: float = .15,
-                 distance_cutoff: int = 10,
-                 add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
-                 unpack: bool = False):
+    def __init__(self, molecules: List[Union[bytes, MoleculeContainer]], *, rate: float = .15,
+                 distance_cutoff: int = 10, add_cls: bool = True, symmetric_cls: bool = True,
+                 disable_components_interaction: bool = False, unpack: bool = False):
         """
         Prepare pairs of "similar" molecules.
         First molecule returns as is, second with randomly replaced by methyl aliphatic/aromatic carbon hydrogen.
