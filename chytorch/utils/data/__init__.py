@@ -19,6 +19,7 @@
 from torch import Size
 from typing import List
 from .contrastive import *
+from .fake_reaction import *
 from .molecule import *
 from .reaction import *
 from .permuted_reaction import *
@@ -54,8 +55,8 @@ class SizedList(List):
 
 
 __all__ = ['MoleculeDataset', 'ReactionDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
-           'PermutedReactionDataset',
+           'PermutedReactionDataset', 'FakeReactionDataset',
            'StructureSampler', 'DistributedStructureSampler',
            'SizedList',
            'collate_molecules', 'collate_reactions', 'contrastive_collate', 'collate_permuted_reactions',
-           'chained_collate']
+           'collate_fake_reactions', 'chained_collate']

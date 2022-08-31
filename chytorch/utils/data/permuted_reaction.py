@@ -18,7 +18,7 @@
 #
 from chython import ReactionContainer
 from chython.periodictable import Element
-from random import random
+from random import random, choice
 from torch import LongTensor, cat
 from torch.utils.data import Dataset
 from torchtyping import TensorType
@@ -29,63 +29,51 @@ from .reaction import *
 # isometric atoms
 # sorted neighbors bonds, atom symbol > atom symbol, hydrogens count
 
-iso_geometry = {('C',): ('O', 2),  # methane - strange case
-                (1, 'C'): ('O', 1),
-                (2, 'C'): ('O', 0),
-                (3, 'C'): ('N', 0),
-                (1, 1, 'C'): ('O', 0),
-                (1, 2, 'C'): ('N', 0),
-                (1, 3, 'C'): ('N', 0),  # charged!
-                (2, 2, 'C'): ('N', 0),  # charged!
-                (1, 1, 1, 'C'): ('N', 0),
-                (1, 1, 2, 'C'): ('N', 0),  # charged!
-                (1, 1, 1, 1, 'C'): ('N', 0),  # charged!
-                (4, 4, 'C'): ('N', 0), (1, 4, 4, 'C'): ('N', 0), (4, 4, 4, 'C'): ('N', 0),  # aromatic
-                (1, 4, 4, 'N'): ('C', 0), (4, 4, 4, 'N'): ('C', 0),
+isosteres = {
+    (): [('B', 3), ('C', 4), ('N', 3), ('O', 2), ('F', 1),
+                   ('Si', 4), ('P', 3), ('S', 2), ('Cl', 1),
+                              ('As', 3), ('Se', 2), ('Br', 1),
+                                         ('Te', 2), ('I', 1),
+         # [BH4-] [NH4+] [OH-] [X-]
+         ('B', 4), ('N', 4), ('O', 1), ('F', 0), ('Cl', 0), ('Br', 0), ('I', 0)],
 
-                (1, 3, 'N'): ('C', 0),  # -[N+]# > -C#
-                (1, 2, 2, 'P'): ('Cl', 0),
-                (1, 1, 1, 2, 'P'): ('Cl', 0),
-                (1, 1, 2, 2, 'S'): ('Se', 0),
-                (1, 2, 2, 2, 'Cl'): ('I', 0)
-                }
+    (1,): [('B', 2), ('C', 3), ('N', 2), ('O', 1), ('F', 0),
+                     ('Si', 3), ('P', 2), ('S', 1), ('Cl', 0),
+                                ('As', 2), ('Se', 1), ('Br', 0),
+                                           ('Te', 1), ('I', 0),
+           ('B', 3), ('N', 3), ('N', 1), ('O', 0), ('S', 0)],  # R[BH3-] R[NH3+] R[NH-] R[OS-]
 
-replace_map = (((), ('C', 4), ('B', 'Si', 'N', 'P', 'As', 'O', 'S', 'Se', 'Te', 'F', 'Cl', 'Br', 'I')),
-               # -BH2, -[BH3-], -CH3, -NH2, -[NH3+], -[NH-], -[O-], -OH, -F
-               ((1,), ('C', 3), ('B', 'Si', 'N', 'P', 'As', 'O', 'S', 'Se', 'Te', 'F', 'Cl', 'Br', 'I')),
-               # =BH, =[BH2-], =CH2, =NH, =[NH2+], =[N-], =O
-               ((2,), ('C', 2), ('B', 'N', 'P', 'O', 'S', 'Se', 'Te')),
-               # #[C-], #CH, #N, [C-]#[O+]
-               ((3,), ('C', 1), ('N', 'O')),
+    (2,): [('B', 1), ('C', 2), ('N', 1), ('O', 0), ('P', 1), ('S', 0), ('As', 1), ('Se', 0),
+           ('N', 2), ('N', 0)],  # R=[NH2+], =[N-]
+    (1, 1): [('B', 1), ('C', 2), ('N', 1), ('O', 0), ('Si', 2), ('P', 1), ('S', 0), ('As', 1), ('Se', 0), ('Te', 0),
+             ('B', 2), ('N', 2), ('N', 0)],  # R2[BH2-] R2[NH2+] R2[N-]
 
-               # -BH-, -[BH2-]-, -CH2-, -SiH2-, -NH-, -[NH2+]-, -[N-]-, -PH-, -O-
-               ((1, 1), ('C', 2), ('B', 'Si', 'N', 'P', 'As', 'O', 'S', 'Se', 'Te')),
-               # -B=, -[BH-]=, -CH=, -N=, -[NH+]=, -[S+]=, -I=
-               ((1, 2), ('C', 1), ('B', 'Si', 'N', 'P', 'As', 'S', 'Cl', 'Br', 'I')),
-               # =C=, =[N+]=, =S=
-               ((2, 2), ('C', 0), ('N', 'S', 'Se', 'Te')),
-               ((4, 4), ('C', 1), ('N', 'O', 'S', 'Se')),
+    (3,): [('C', 1), ('N', 0), ('P', 0),
+           ('C', 0), ('O', 0)],  # [C-]#[O+]
+    (1, 2): [('B', 0), ('C', 1), ('N', 0), ('P', 0), ('As', 0), ('Cl', 0), ('Br', 0), ('I', 0),
+             ('N', 1), ('O', 0), ('S', 0)],  # =[NH+]- =[O+]- =[S+]-
+    (1, 1, 1): [('B', 0), ('C', 1), ('N', 0), ('Si', 1), ('P', 0), ('As', 0), ('Cl', 0), ('Br', 0), ('I', 0),
+                ('B', 1), ('N', 1), ('S', 0)],  # R3[BH-] R3[NH+] R3[S+]
 
-               # -B(-)-, -[BH-](-)-, -CH(-)-, -N(-)-, -[NH+](-)-, -[S+](-)-, -Cl(-)-
-               ((1, 1, 1), ('C', 1), ('B', 'Si', 'N', 'P', 'As', 'S', 'Cl', 'Br', 'I')),
-               # -C(-)=, -[N+](-)=, -S(-)=,
-               ((1, 1, 2), ('C', 0), ('Si', 'N', 'S', 'Se', 'Te')),
-               # -Cl(=)=
-               ((1, 2, 2), ('P', 0), ('As', 'Cl', 'Br', 'I')),
+    (1, 3): [('C', 0), ('N', 0)],  # #[N+]-
+    (2, 2): [('C', 0), ('Si', 0), ('S', 0), ('Se', 0), ('Te', 0), ('N', 0)],  # =[N+]=
+    (1, 1, 2): [('C', 0), ('Si', 0), ('S', 0), ('Se', 0), ('Te', 0), ('B', 0), ('N', 0)],  # R2[B+]= =[N+]R2
+    (1, 1, 1, 1): [('C', 0), ('Si', 0), ('S', 0), ('Se', 0), ('Te', 0), ('B', 0), ('N', 0), ('P', 0)],  # R4[B-] R4[NP+]
 
-               # -C(-)(-)-, -[N+](-)(-)-, -S(-)(-)-
-               ((1, 1, 1, 1), ('C', 0), ('Si', 'N', 'S', 'Se', 'Te')),
-               ((1, 1, 1, 2), ('P', 0), ('As', 'Cl', 'Br', 'I')),
-               ((1, 1, 2, 2), ('S', 0), ('Se', 'Te')),
-               ((1, 2, 2, 2), ('Cl', 0), ('Br', 'I')),
-               )
+    (1, 2, 2): [('P', 0), ('As', 0), ('Cl', 0), ('Br', 0), ('I', 0)],
+    (1, 1, 1, 2): [('P', 0), ('As', 0), ('Cl', 0), ('Br', 0), ('I', 0)],
+    (1, 1, 1, 1, 1): [('P', 0), ('As', 0), ('Cl', 0), ('Br', 0), ('I', 0)],
 
+    (2, 2, 2): [('S', 0), ('Se', 0), ('Te', 0)],
+    (1, 1, 2, 2): [('S', 0), ('Se', 0), ('Te', 0)],
+    (1, 1, 1, 1, 1, 1): [('S', 0), ('Se', 0), ('Te', 0), ('P', 0)],  # [PF6-]
 
-for k, r, ass in replace_map:
-    for a in ass:
-        iso_geometry[(*k, a)] = r
-
-del k, r, ass, a, replace_map
+    (1, 2, 2, 2): [('Cl', 0), ('Br', 0), ('I', 0)],
+    (1, 1, 1, 2, 2): [('Cl', 0), ('Br', 0), ('I', 0)],
+    (1, 1, 1, 1, 1, 2): [('Cl', 0), ('Br', 0), ('I', 0)],
+    (1, 1, 1, 1, 1, 1, 1): [('Cl', 0), ('Br', 0), ('I', 0)]
+}
+isosteres = {(*bs, rp): [x for x in rps if x[0] != rp] for bs, rps in isosteres.items() for rp, _ in rps}
 
 
 def collate_permuted_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
@@ -147,8 +135,8 @@ class PermutedReactionDataset(Dataset):
             for n, a in m.atoms():
                 k = sorted(x.order for x in bonds[n].values())
                 k.append(a.atomic_symbol)
-                if (p := iso_geometry.get(tuple(k))) and random() < self.rate:
-                    s, h = p
+                if (p := isosteres.get(tuple(k))) and random() < self.rate:
+                    s, h = choice(p)
                     a.__class__ = Element.from_symbol(s)
                     hgs[n] = h
                     labels.append(0)  # Fake atom
