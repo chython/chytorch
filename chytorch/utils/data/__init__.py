@@ -24,6 +24,7 @@ from .molecule import *
 from .reaction import *
 from .permuted_reaction import *
 from .sampler import *
+from .tokenizer import *
 
 
 def chained_collate(*collate_fns):
@@ -55,8 +56,8 @@ class SizedList(List):
 
 
 __all__ = ['MoleculeDataset', 'ReactionDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
-           'PermutedReactionDataset', 'FakeReactionDataset',
+           'PermutedReactionDataset', 'FakeReactionDataset', 'SMILESDataset',
            'StructureSampler', 'DistributedStructureSampler',
            'SizedList',
            'collate_molecules', 'collate_reactions', 'contrastive_collate', 'collate_permuted_reactions',
-           'collate_fake_reactions', 'chained_collate']
+           'collate_fake_reactions', 'chained_collate', 'collate_sequences']

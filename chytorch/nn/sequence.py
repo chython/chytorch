@@ -18,7 +18,7 @@
 #
 from math import log, inf
 from torch import Tensor, cat, zeros, arange, exp, sin, cos, ones, triu, zeros_like, float as t_float
-from torch.nn import Dropout, GELU, Linear, LayerNorm, Module, MultiheadAttention, Embedding
+from torch.nn import Dropout, GELU, Linear, LayerNorm, Module, MultiheadAttention, Embedding, ModuleList
 from torchtyping import TensorType
 
 
@@ -50,17 +50,30 @@ class SequenceDecoder(Module):
     """
     Transformer decoder adopted to generate sequences from molecular embeddings.
     """
-    def __init__(self, dict_size: int = 100, seq_max_len: int = 100,
+    def __init__(self, dict_size: int = 100, seq_max_len: int = 100, shared_weights: bool = True,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
                  dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
+        """
+        Sequence TransformerDecoder layer.
+
+        :param dict_size: number of possible tokens.
+        :param seq_max_len: maximal sequence length to decode.
+        :param shared_weights: ALBERT-like encoder weights sharing.
+        """
         super().__init__()
         self.embedding = Embedding(dict_size, d_model, padding_idx=0)
-        self.layer = SequenceDecoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
         self.linear = Linear(d_model, dict_size)
         self.dropout = Dropout(dropout)
 
+        if shared_weights:
+            self.layer = SequenceDecoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
+            self.layers = [self.layer] * num_layers
+        else:
+            self.layers = ModuleList(SequenceDecoderLayer(d_model, nhead, dim_feedforward, dropout, activation,
+                                                          layer_norm_eps)
+                                     for _ in range(num_layers))
+
         self.register_buffer('pos_encoding', _pos_encoding(seq_max_len, d_model), persistent=False)
-        self.num_layers = num_layers
         self.nhead = nhead
 
     def forward(self, emb: TensorType['batch', 'embedding'], seq: TensorType['batch', 'tokens', int]) -> \
@@ -72,8 +85,8 @@ class SequenceDecoder(Module):
 
         x = self.dropout(self.embedding(seq) + self.pos_encoding[:n])  # positionally coded sequence
         e = emb.unsqueeze(1).expand(x.size())
-        for _ in range(self.num_layers):
-            x = self.layer(x, e, p_mask)
+        for lr in self.layers:
+            x = lr(x, e, p_mask)
         return self.linear(x)
 
 
