@@ -78,7 +78,7 @@ class ContrastiveDataset(Dataset):
         i, p = self.total[item]
         mols = self.molecules[i]
         if (n := len(mols)) == 1:  # no pairs
-            m = MoleculeDataset([MoleculeContainer.unpack(mols[0])], distance_cutoff=self.distance_cutoff,
+            m = MoleculeDataset(mols, distance_cutoff=self.distance_cutoff,
                                 add_cls=self.add_cls, symmetric_cls=self.symmetric_cls, unpack=self.unpack,
                                 disable_components_interaction=self.disable_components_interaction)[0]
             return m, m
