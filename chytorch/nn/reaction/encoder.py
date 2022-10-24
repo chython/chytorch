@@ -21,8 +21,8 @@ from torch import zeros_like, float as t_float, stack
 from torch.nn import Embedding, GELU, Module, ModuleList
 from torchtyping import TensorType
 from typing import Tuple, Union
-from .molecule import MoleculeEncoder
-from .transformer import EncoderLayer
+from ..molecule import MoleculeEncoder
+from ..transformer import EncoderLayer
 
 
 class ReactionEncoder(Module):
@@ -44,6 +44,9 @@ class ReactionEncoder(Module):
         if shared_layers:
             assert shared_in_weights == shared_ex_weights, 'use equal weights sharing mode'
             assert n_in_head == n_ex_head, 'use equal heads count'
+            if not shared_ex_weights:
+                assert num_in_layers == num_ex_layers, 'use equal number of layers with' \
+                                                       ' shared_ex_weights=False and shared_layers=True'
         super().__init__()
         self.molecule_encoder = MoleculeEncoder(max_neighbors=max_neighbors, max_distance=max_distance, d_model=d_model,
                                                 nhead=n_in_head, num_layers=num_in_layers,
@@ -52,9 +55,9 @@ class ReactionEncoder(Module):
         self.role_encoder = Embedding(4, d_model, 0)
 
         if shared_layers:
-            if shared_ex_weights:
-                self.layers = self.molecule_encoder.layers
-            else:  # hide from parameters lookup
+            if shared_ex_weights:  # mol encoder already shared
+                self.layers = [self.molecule_encoder.layer] * num_ex_layers
+            else:  # hide ModuleList from parameters lookup
                 self.layers = list(self.molecule_encoder.layers)
         elif shared_ex_weights:
             self.layer = EncoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation, layer_norm_eps)

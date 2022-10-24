@@ -23,7 +23,7 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name='chytorch',
-    version='1.21',
+    version='1.22',
     packages=find_namespace_packages(include=('chytorch.*',)),
     url='https://github.com/chython/chytorch',
     license='LGPLv3',

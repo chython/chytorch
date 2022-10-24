@@ -25,16 +25,17 @@ from torchtyping import TensorType
 class SequenceDecoderLayer(Module):
     """
     Inspired by torch.nn.modules.transformer.TransformerDecoderLayer layer
-     adopted for a latent space to sequence decoding.
+     adopted for an aggregated latent space to sequence decoding.
     """
     def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1, activation=GELU, layer_norm_eps=1e-5):
         super().__init__()
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
 
-        self.linear1 = Linear(d_model * 2, dim_feedforward)
+        self.linear1 = Linear(d_model, dim_feedforward)
         self.linear2 = Linear(dim_feedforward, d_model)
         self.norm1 = LayerNorm(d_model, eps=layer_norm_eps)
         self.norm2 = LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm3 = LayerNorm(d_model, eps=layer_norm_eps)
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
         self.dropout3 = Dropout(dropout)
@@ -42,8 +43,8 @@ class SequenceDecoderLayer(Module):
 
     def forward(self, x: Tensor, e: Tensor, attn_mask: Tensor) -> Tensor:
         x = self.norm1(x + self.dropout1(self.self_attn(x, x, x, attn_mask=attn_mask, need_weights=False)[0]))
-        y = cat((x, e), 2)
-        return self.norm2(x + self.dropout3(self.linear2(self.dropout2(self.activation(self.linear1(y))))))
+        x = self.norm2(x + e)  # MHA replaced by shared encoder embedding
+        return self.norm3(x + self.dropout3(self.linear2(self.dropout2(self.activation(self.linear1(x))))))
 
 
 class SequenceDecoder(Module):
