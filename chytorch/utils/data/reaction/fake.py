@@ -22,20 +22,20 @@ from torch import LongTensor
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Tuple, Union
-from .reaction import *
+from .encoder import *
 
 
-def collate_fake_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
-                                           TensorType['batch', 'atoms', int],
-                                           TensorType['batch', 'atoms', 'atoms', int],
-                                           TensorType['batch', 'atoms', int],
-                                           TensorType['batch', int]]:
+def collate_faked_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
+                                            TensorType['batch', 'atoms', int],
+                                            TensorType['batch', 'atoms', 'atoms', int],
+                                            TensorType['batch', 'atoms', int],
+                                            TensorType['batch', int]]:
     """
     Prepares batches of faked reactions.
 
     :return: atoms, neighbors, distances, atoms roles, and fake label.
     """
-    return *collate_reactions([x[:4] for x in batch]), LongTensor([x[-1] for x in batch])
+    return *collate_encoded_reactions([x[:4] for x in batch]), LongTensor([x[-1] for x in batch])
 
 
 class FakeReactionDataset(Dataset):
@@ -81,10 +81,10 @@ class FakeReactionDataset(Dataset):
             label = 0
         else:
             label = 1
-        return *ReactionDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
-                                add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
-                                disable_components_interaction=self.disable_components_interaction,
-                                hide_molecule_cls=self.hide_molecule_cls)[0], label
+        return *ReactionEncoderDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
+                                       add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
+                                       disable_components_interaction=self.disable_components_interaction,
+                                       hide_molecule_cls=self.hide_molecule_cls)[0], label
 
 
-__all__ = ['FakeReactionDataset', 'collate_fake_reactions']
+__all__ = ['FakeReactionDataset', 'collate_faked_reactions']

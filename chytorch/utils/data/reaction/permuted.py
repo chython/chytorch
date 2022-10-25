@@ -23,7 +23,7 @@ from torch import LongTensor, cat
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Tuple, Union
-from .reaction import *
+from .encoder import *
 
 
 # isometric atoms
@@ -88,7 +88,7 @@ def collate_permuted_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int]
 
     Note: cls and padding not included into legend.
     """
-    return *collate_reactions([x[:4] for x in batch]), cat([x[-1] for x in batch])
+    return *collate_encoded_reactions([x[:4] for x in batch]), cat([x[-1] for x in batch])
 
 
 class PermutedReactionDataset(Dataset):
@@ -142,10 +142,10 @@ class PermutedReactionDataset(Dataset):
                     labels.append(0)  # Fake atom
                 else:
                     labels.append(1)  # True atom
-        return *ReactionDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
-                                add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
-                                disable_components_interaction=self.disable_components_interaction,
-                                hide_molecule_cls=self.hide_molecule_cls)[0], LongTensor(labels)
+        return *ReactionEncoderDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
+                                       add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
+                                       disable_components_interaction=self.disable_components_interaction,
+                                       hide_molecule_cls=self.hide_molecule_cls)[0], LongTensor(labels)
 
 
 __all__ = ['PermutedReactionDataset', 'collate_permuted_reactions']

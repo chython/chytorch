@@ -23,13 +23,13 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Tuple, Union
-from .molecule import MoleculeDataset
+from ..molecule import MoleculeDataset
 
 
-def collate_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
-                                      TensorType['batch', 'atoms', int],
-                                      TensorType['batch', 'atoms', 'atoms', int],
-                                      TensorType['batch', 'atoms', int]]:
+def collate_encoded_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
+                                              TensorType['batch', 'atoms', int],
+                                              TensorType['batch', 'atoms', 'atoms', int],
+                                              TensorType['batch', 'atoms', int]]:
     """
     Prepares batches of reactions.
 
@@ -52,7 +52,7 @@ def collate_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
     return pa, pad_sequence(neighbors, True), tmp, pad_sequence(roles, True)
 
 
-class ReactionDataset(Dataset):
+class ReactionEncoderDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, distance_cutoff: int = 10,
                  add_cls: bool = True, add_molecule_cls: bool = True, symmetric_cls: bool = True,
                  disable_components_interaction: bool = False, hide_molecule_cls: bool = True, unpack: bool = False):
@@ -68,8 +68,11 @@ class ReactionDataset(Dataset):
         :param add_molecule_cls: add special token at first position of each molecule
         :param symmetric_cls: do bidirectional attention of molecular cls to atoms and back
         :param disable_components_interaction: treat molecule components as isolated molecules
-        :param hide_molecule_cls: disable molecule cls in reaction lvl
+        :param hide_molecule_cls: disable molecule cls in reaction lvl (mark as padding)
         """
+        if not add_molecule_cls:
+            assert not hide_molecule_cls, 'add_molecule_cls should be True if hide_molecule_cls is True'
+            assert not symmetric_cls, 'add_molecule_cls should be True if symmetric_cls is True'
         self.reactions = reactions
         self.distance_cutoff = distance_cutoff
         self.add_cls = add_cls
@@ -127,4 +130,4 @@ class ReactionDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['ReactionDataset', 'collate_reactions']
+__all__ = ['ReactionEncoderDataset', 'collate_encoded_reactions']

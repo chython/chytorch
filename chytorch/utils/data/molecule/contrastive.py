@@ -23,7 +23,7 @@ from random import choice, random
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Tuple, Union, List
-from .molecule import *
+from .encoder import *
 
 
 def contrastive_collate(batch) -> Tuple[TensorType['2*batch', 'atoms', int], TensorType['2*batch', 'atoms', int],

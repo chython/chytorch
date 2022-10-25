@@ -75,6 +75,7 @@ class MoleculeDataset(Dataset):
         :param disable_components_interaction: treat components as isolated molecules
         :param unpack: unpack molecules
         """
+        assert add_cls or not symmetric_cls, 'add_cls should be True if symmetric_cls is True'
         self.molecules = molecules
         self.distance_cutoff = distance_cutoff
         self.add_cls = add_cls

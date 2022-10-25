@@ -18,11 +18,8 @@
 #
 from torch import Size
 from typing import List
-from .contrastive import *
-from .fake_reaction import *
 from .molecule import *
 from .reaction import *
-from .permuted_reaction import *
 from .sampler import *
 from .tokenizer import *
 
@@ -55,9 +52,12 @@ class SizedList(List):
         raise IndexError
 
 
-__all__ = ['MoleculeDataset', 'ReactionDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
-           'PermutedReactionDataset', 'FakeReactionDataset', 'SMILESDataset',
+__all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
+           'ReactionEncoderDataset', 'PermutedReactionDataset', 'FakeReactionDataset',
+           'SMILESDataset',
            'StructureSampler', 'DistributedStructureSampler',
            'SizedList',
-           'collate_molecules', 'collate_reactions', 'contrastive_collate', 'collate_permuted_reactions',
-           'collate_fake_reactions', 'chained_collate', 'collate_sequences']
+           'collate_molecules', 'contrastive_collate', 'collate_encoded_reactions', 'collate_permuted_reactions',
+           'collate_faked_reactions', 'collate_sequences', 'chained_collate',
+           # reverse compatibility
+           'ReactionDataset', 'collate_reactions']
