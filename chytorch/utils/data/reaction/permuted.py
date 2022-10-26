@@ -23,7 +23,7 @@ from torch import LongTensor, cat
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Tuple, Union
-from .encoder import *
+from .decoder import *
 
 
 # isometric atoms
@@ -76,41 +76,34 @@ isosteres = {
 isosteres = {(*bs, rp): [x for x in rps if x[0] != rp] for bs, rps in isosteres.items() for rp, _ in rps}
 
 
-def collate_permuted_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
-                                               TensorType['batch', 'atoms', int],
-                                               TensorType['batch', 'atoms', 'atoms', int],
-                                               TensorType['batch', 'atoms', int],
+def collate_permuted_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int],
+                                               TensorType['batch*2', 'atoms', int],
+                                               TensorType['batch*2', 'atoms', 'atoms', int],
+                                               TensorType['batch', 'atoms', float],
                                                TensorType['batch*atoms', int]]:
     """
     Prepares batches of permuted reactions.
 
-    :return: atoms, neighbors, distances, atoms roles, and atoms replacement legend.
+    :return: atoms, neighbors, distances, masks, and atoms replacement legend.
 
     Note: cls and padding not included into legend.
     """
-    return *collate_encoded_reactions([x[:4] for x in batch]), cat([x[-1] for x in batch])
+    return *collate_decoded_reactions([x[:-1] for x in batch]), cat([x[-1] for x in batch])
 
 
 class PermutedReactionDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, rate: float = .15,
-                 only_product: bool = False, distance_cutoff: int = 10, add_cls: bool = True,
-                 add_molecule_cls: bool = True, symmetric_cls: bool = True,
-                 disable_components_interaction: bool = False, hide_molecule_cls: bool = True, unpack: bool = False):
+                 distance_cutoff: int = 10, add_cls: bool = True, add_molecule_cls: bool = True,
+                 symmetric_cls: bool = True, disable_components_interaction: bool = False,
+                 hide_molecule_cls: bool = True, unpack: bool = False):
         """
-        Prepare reactions with permuted atoms.
-        Organic atoms with valence <= 4 can be randomly replaced by carbon.
-        Carbons with valence 1,2 and methane can be replaced by oxygen, with valence 3,4 by nitrogen.
-        5-valent atoms replaced by P, P(V) > Cl
-        6-valent by S, S > Se
-        7-valent by Cl, Cl > I.
+        Prepare reactions with randomly permuted "organic" atoms in products.
 
         :param rate: probability of replacement
-        :param only_product: replace only product atoms
 
-        See ReactionDataset for other params description.
+        See ReactionDecoderDataset for other params description.
         """
         self.rate = rate
-        self.only_product = only_product
         self.reactions = reactions
         self.distance_cutoff = distance_cutoff
         self.add_cls = add_cls
@@ -124,12 +117,15 @@ class PermutedReactionDataset(Dataset):
         return len(self.reactions)
 
     def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int], TensorType['atoms', int],
+                                              TensorType['atoms', 'atoms', int],
+                                              TensorType['atoms', int], TensorType['atoms', int],
+                                              TensorType['atoms', 'atoms', int],
+                                              TensorType['atoms', float],
                                               TensorType['atoms', int]]:
         r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item].copy()
 
         labels = []
-        for m in (r.products if self.only_product else r.molecules()):
+        for m in r.products:
             bonds = m._bonds
             hgs = m._hydrogens
             for n, a in m.atoms():
@@ -142,7 +138,7 @@ class PermutedReactionDataset(Dataset):
                     labels.append(0)  # Fake atom
                 else:
                     labels.append(1)  # True atom
-        return *ReactionEncoderDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
+        return *ReactionDecoderDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
                                        add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
                                        disable_components_interaction=self.disable_components_interaction,
                                        hide_molecule_cls=self.hide_molecule_cls)[0], LongTensor(labels)

@@ -22,20 +22,20 @@ from torch import LongTensor
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Tuple, Union
-from .encoder import *
+from .decoder import *
 
 
-def collate_faked_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
-                                            TensorType['batch', 'atoms', int],
-                                            TensorType['batch', 'atoms', 'atoms', int],
-                                            TensorType['batch', 'atoms', int],
+def collate_faked_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int],
+                                            TensorType['batch*2', 'atoms', int],
+                                            TensorType['batch*2', 'atoms', 'atoms', int],
+                                            TensorType['batch', 'atoms', float],
                                             TensorType['batch', int]]:
     """
     Prepares batches of faked reactions.
 
-    :return: atoms, neighbors, distances, atoms roles, and fake label.
+    :return: atoms, neighbors, distances, masks, and fake label.
     """
-    return *collate_encoded_reactions([x[:4] for x in batch]), LongTensor([x[-1] for x in batch])
+    return *collate_decoded_reactions([x[:-1] for x in batch]), LongTensor([x[-1] for x in batch])
 
 
 class FakeReactionDataset(Dataset):
@@ -50,7 +50,7 @@ class FakeReactionDataset(Dataset):
 
         :param rate: probability of switch
 
-        See ReactionDataset for other params description.
+        See ReactionDecoderDataset for other params description.
         """
         self.rate = rate
         self.reactions = reactions
@@ -66,7 +66,10 @@ class FakeReactionDataset(Dataset):
         return len(self.reactions)
 
     def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int], TensorType['atoms', int],
+                                              TensorType['atoms', 'atoms', int],
+                                              TensorType['atoms', int], TensorType['atoms', int],
+                                              TensorType['atoms', 'atoms', int],
+                                              TensorType['atoms', float],
                                               int]:
         r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item].copy()
 
@@ -81,7 +84,7 @@ class FakeReactionDataset(Dataset):
             label = 0
         else:
             label = 1
-        return *ReactionEncoderDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
+        return *ReactionDecoderDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
                                        add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
                                        disable_components_interaction=self.disable_components_interaction,
                                        hide_molecule_cls=self.hide_molecule_cls)[0], label
