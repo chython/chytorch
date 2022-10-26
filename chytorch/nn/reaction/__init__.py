@@ -16,7 +16,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from .decoder import *
 from .encoder import *
 
 
-__all__ = ['ReactionEncoder']
+__all__ = ['ReactionEncoder', 'ReactionDecoder']

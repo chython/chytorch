@@ -16,6 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from .decoder import *
 from .encoder import *
 from .fake import *
 from .permuted import *
@@ -26,7 +27,8 @@ ReactionDataset = ReactionEncoderDataset
 collate_reactions = collate_encoded_reactions
 
 
-__all__ = ['ReactionEncoderDataset', 'FakeReactionDataset', 'PermutedReactionDataset',
-           'collate_encoded_reactions', 'collate_faked_reactions', 'collate_permuted_reactions',
+__all__ = ['ReactionEncoderDataset', 'ReactionDecoderDataset', 'FakeReactionDataset', 'PermutedReactionDataset',
+           'collate_encoded_reactions', 'collate_decoded_reactions',
+           'collate_faked_reactions', 'collate_permuted_reactions',
            # reverse compatibility
            'ReactionDataset', 'collate_reactions']
