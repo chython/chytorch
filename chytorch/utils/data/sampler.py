@@ -23,25 +23,40 @@ from itertools import chain, islice
 from torch import Generator, randperm
 from torch.utils.data import DistributedSampler, Sampler
 from typing import Optional, Union
-from .molecule import MoleculeDataset
-from .reaction import ReactionDataset
+from .molecule import MoleculeDataset, ContrastiveMethylDataset
+from .reaction import ReactionEncoderDataset, ReactionDecoderDataset, PermutedReactionDataset
 
 
 class Mixin:
     def __init__(self, *args, **kwargs):
-        if isinstance(self.dataset, MoleculeDataset):
+        if isinstance(self.dataset, (MoleculeDataset, ContrastiveMethylDataset)):
             if self.dataset.unpack:
                 # 12 bit - atoms count
                 self.sizes = [MoleculeContainer.pack_len(m) for m in self.dataset.molecules]
             else:
                 self.sizes = [len(m) for m in self.dataset.molecules]
-        elif isinstance(self.dataset, ReactionDataset):
+        elif isinstance(self.dataset, ReactionEncoderDataset):
             x = int(self.dataset.add_molecule_cls)
             if self.dataset.unpack:
-                self.sizes = [sum(m + x for m in ReactionContainer.pack_len(r) for m in m)
-                              for r in self.dataset.reactions]
+                self.sizes = sizes = []
+                for r in self.dataset.reactions:
+                    rs, _, ps = ReactionContainer.pack_len(r)
+                    sizes.append(sum(m + x for m in rs) + sum(m + x for m in ps))
             else:
-                self.sizes = [sum(len(m) + x for m in r.molecules()) for r in self.dataset.reactions]
+                self.sizes = [sum(len(m) + x for m in r.reactants) + sum(len(m) + x for m in r.products)
+                              for r in self.dataset.reactions]
+        elif isinstance(self.dataset, (ReactionDecoderDataset, PermutedReactionDataset)):
+            x = int(self.dataset.add_molecule_cls)
+            y = int(self.dataset.add_cls)
+            if self.dataset.unpack:
+                self.sizes = sizes = []
+                for r in self.dataset.reactions:
+                    rs, _, ps = ReactionContainer.pack_len(r)
+                    sizes.append(max(sum(m + x for m in rs), sum(m + x for m in ps) + y))
+            else:
+                self.sizes = [max(sum(len(m) + x for m in r.reactants),
+                                  sum(len(m) + x for m in r.products) + y)
+                              for r in self.dataset.reactions]
         else:
             raise TypeError
         super().__init__(*args, **kwargs)
@@ -85,8 +100,9 @@ class Mixin:
 
 
 class StructureSampler(Mixin, Sampler):
-    def __init__(self, dataset: Union[MoleculeDataset, ReactionDataset], batch_size: int,
-                 shuffle: bool = True, seed: int = 0):
+    def __init__(self, dataset: Union[MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
+                                      ReactionDecoderDataset, PermutedReactionDataset],
+                 batch_size: int, shuffle: bool = True, seed: int = 0):
         """
         Sample molecules or reactions locally grouped by size to reduce idle calculations on paddings.
 
@@ -119,7 +135,9 @@ class StructureSampler(Mixin, Sampler):
 
 
 class DistributedStructureSampler(Mixin, DistributedSampler):
-    def __init__(self, dataset: MoleculeDataset, batch_size: int, num_replicas: Optional[int] = None,
+    def __init__(self, dataset: Union[MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
+                                      ReactionDecoderDataset, PermutedReactionDataset],
+                 batch_size: int, num_replicas: Optional[int] = None,
                  rank: Optional[int] = None, shuffle: bool = True, seed: int = 0):
         """
         Sample molecules locally grouped by size to reduce idle calculations on paddings.
