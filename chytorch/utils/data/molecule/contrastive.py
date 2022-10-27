@@ -134,18 +134,24 @@ class ContrastiveMethylDataset(Dataset):
                                                TensorType['atoms', 'atoms', int]]]:
         m1 = MoleculeContainer.unpack(self.molecules[item]) if self.unpack else self.molecules[item]
         m2 = m1.copy()
+        hgs = m2._hydrogens  # noqa
 
         potent = []
         for n, a in m1.atoms():
-            if a.atomic_number == 6 and a.implicit_hydrogens and a.hybridization in (1, 4):
+            if a.atomic_number == 6 and hgs[n] and a.hybridization in (1, 4):
                 potent.append(n)
                 if random() < self.rate:
                     m2.add_bond(n, m2.add_atom(C()), 1)
+                    if hgs[n] is None:  # aryl
+                        hgs[n] = 0
         # at least 1 atom should be picked
         if len(m2) == len(m1) and potent:
-            m2.add_bond(choice(potent), m2.add_atom(C()), 1)
+            n = choice(potent)
+            m2.add_bond(n, m2.add_atom(C()), 1)
+            if hgs[n] is None:  # aryl
+                hgs[n] = 0
         ms = MoleculeDataset([m1, m2], distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
-                             symmetric_cls=self.symmetric_cls, unpack=self.unpack,
+                             symmetric_cls=self.symmetric_cls,
                              disable_components_interaction=self.disable_components_interaction)
         return ms[0], ms[1]
 
