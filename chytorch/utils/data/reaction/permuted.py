@@ -124,20 +124,21 @@ class PermutedReactionDataset(Dataset):
                                               TensorType['atoms', int]]:
         r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item].copy()
 
-        labels = []
+        labels = [1] if self.add_cls else []
         for m in r.products:
-            bonds = m._bonds
-            hgs = m._hydrogens
+            bonds = m._bonds  # noqa
+            hgs = m._hydrogens  # noqa
+            if self.add_molecule_cls:
+                labels.append(1)
             for n, a in m.atoms():
+                labels.append(a.atomic_number + 2)  # True atom
                 k = sorted(x.order for x in bonds[n].values())
                 k.append(a.atomic_symbol)
                 if (p := isosteres.get(tuple(k))) and random() < self.rate:
+                    # fake atom
                     s, h = choice(p)
                     a.__class__ = Element.from_symbol(s)
                     hgs[n] = h
-                    labels.append(0)  # Fake atom
-                else:
-                    labels.append(1)  # True atom
         return *ReactionDecoderDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
                                        add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
                                        disable_components_interaction=self.disable_components_interaction,
