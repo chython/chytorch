@@ -16,17 +16,19 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from pathlib import Path
 from struct import Struct
 from torch import Tensor, tensor, float32
-from typing import Optional, Iterable, Tuple
+from typing import Optional, Iterable, Tuple, Union
 from .mapper import LMDBMapper
 
 
 class LMDBProperties(LMDBMapper):
-    __slots__ = ('format_spec', 'columns', 'dtype', '_struct')
+    __slots__ = ('format_spec', 'columns', 'dtype', 'limit', '_struct', '_readonly', '_count')
 
     def __init__(self, db: 'lmdb.Environment', format_spec: str, *,
-                 columns: Optional[Tuple[int, ...]] = None, dtype=float32, limit: int = 1000,):
+                 columns: Optional[Tuple[int, ...]] = None, dtype=float32, limit: int = 1000,
+                 cache: Union[Path, str, None] = None, validate_cache: bool = True):
         """
         Map LMDB key-value storage to the integer-key - Tensor value torch Dataset.
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
@@ -37,13 +39,24 @@ class LMDBProperties(LMDBMapper):
         :param dtype: output tensor dtype
         :param limit: write transaction putting before commit limit
         """
-        super().__init__(db, limit=limit)
+        super().__init__(db, cache=cache, validate_cache=validate_cache)
         self.format_spec = format_spec
         self.columns = columns
         self.dtype = dtype
+        self.limit = limit
         self._struct = Struct(format_spec)
+        self._readonly = True
 
     def __getitem__(self, item: int) -> Tensor:
+        if not self._readonly:
+            self._readonly = True
+            try:
+                self._tr.commit()  # close write transaction
+            except AttributeError:
+                pass  # transaction not found
+            else:
+                del self._tr
+
         data = super().__getitem__(item)
         p = self._struct.unpack(data)
         if self.columns:
@@ -51,7 +64,33 @@ class LMDBProperties(LMDBMapper):
         return tensor(p, dtype=self.dtype)
 
     def __setitem__(self, key: bytes, value: Iterable):
-        super().__setitem__(key, self._struct.pack(*value))
+        value = self._struct.pack(*value)
+        if self._readonly:  # switch to write mode
+            self._readonly = False
+            try:
+                del self._mapping  # remove mapping if exists
+            except AttributeError:
+                pass
+
+            try:
+                self._tr.commit()  # close and remove transaction
+            except AttributeError:
+                pass
+            else:
+                del self._tr
+
+        try:
+            tr = self._tr
+        except AttributeError:
+            self._tr = tr = self.db.begin(write=True)
+            self._count = 0
+
+        tr.put(key, value)
+        # flush transaction
+        self._count += 1
+        if self._count >= self.limit:
+            tr.commit()
+            del self._tr
 
 
 __all__ = ['LMDBProperties']

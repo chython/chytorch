@@ -16,24 +16,37 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from pathlib import Path
+from pickle import load, dump
 from torch import Size
 from torch.utils.data import Dataset
+from typing import Union
 
 
 class LMDBMapper(Dataset):
-    __slots__ = ('db', '_readonly', '_tr', '_mapping', '_count', 'limit')
+    __slots__ = ('db', 'cache', '_tr', '_mapping')
 
-    def __init__(self, db: 'lmdb.Environment', *, limit: int = 1000):
+    def __init__(self, db: 'lmdb.Environment', *, cache: Union[Path, str, None] = None, validate_cache: bool = True):
         """
         Map LMDB key-value storage to the integer-key - value torch Dataset.
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
 
         :param db: lmdb environment object
-        :param limit: write transaction putting before commit limit
+        :param cache: path to cache file for [re]storing index. caching disabled by default.
+        :param validate_cache: check cache-dataset size mismatch
         """
         self.db = db
-        self.limit = limit
-        self._readonly = True
+        self.cache = cache
+
+        if cache is not None:
+            cache = Path(cache)
+            if cache.exists():
+                # load existing cache
+                with cache.open('rb') as f:
+                    mapping = load(f)
+                assert isinstance(mapping, dict), 'Mapper cache invalid'
+                assert not validate_cache or len(mapping) == db.stat()['entries'], 'Mapper cache size mismatch'
+                self._mapping = mapping
 
     def __len__(self):
         try:
@@ -42,16 +55,6 @@ class LMDBMapper(Dataset):
             return self.db.stat()['entries']
 
     def __getitem__(self, item: int):
-        if not self._readonly:
-            self._readonly = True
-            try:
-                self._tr.commit()  # close write transaction
-            except AttributeError:
-                pass  # transaction not found
-            else:
-                del self._tr
-
-        # now we are in readonly mode
         try:
             tr = self._tr
         except AttributeError:
@@ -63,36 +66,12 @@ class LMDBMapper(Dataset):
             with tr.cursor() as c:
                 # build mapping
                 self._mapping = mp = dict(enumerate(c.iternext(keys=True, values=False)))
+            if self.cache is not None:
+                # save to cache
+                with Path(self.cache).open('wb') as f:
+                    dump(mp, f)
 
         return tr.get(mp[item])
-
-    def __setitem__(self, key: bytes, value: bytes):
-        if self._readonly:  # switch to write mode
-            self._readonly = False
-            try:
-                del self._mapping  # remove mapping if exists
-            except AttributeError:
-                pass
-
-            try:
-                self._tr.commit()  # close and remove transaction
-            except AttributeError:
-                pass
-            else:
-                del self._tr
-
-        try:
-            tr = self._tr
-        except AttributeError:
-            self._tr = tr = self.db.begin(write=True)
-            self._count = 0
-
-        tr.put(key, value)
-        # flush transaction
-        self._count += 1
-        if self._count >= self.limit:
-            tr.commit()
-            del self._tr
 
     def size(self, dim):
         if dim == 0:

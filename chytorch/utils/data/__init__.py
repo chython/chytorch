@@ -54,11 +54,9 @@ class SizedList(List):
 
 
 __all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
-           'ReactionEncoderDataset', 'PermutedReactionDataset', 'FakeReactionDataset',
+           'ReactionEncoderDataset', 'ReactionDecoderDataset',  'PermutedReactionDataset', 'FakeReactionDataset',
            'SMILESDataset',
            'StructureSampler', 'DistributedStructureSampler',
            'SizedList', 'LMDBMapper', 'LMDBProperties',
-           'collate_molecules', 'contrastive_collate', 'collate_encoded_reactions', 'collate_permuted_reactions',
-           'collate_faked_reactions', 'collate_sequences', 'chained_collate',
-           # reverse compatibility
-           'ReactionDataset', 'collate_reactions']
+           'collate_molecules', 'contrastive_collate', 'collate_encoded_reactions', 'collate_decoded_reactions',
+           'collate_permuted_reactions', 'collate_faked_reactions', 'collate_sequences', 'chained_collate']

@@ -20,6 +20,8 @@ from chython import MoleculeContainer, ReactionContainer
 from collections import defaultdict
 from functools import cached_property
 from itertools import chain, islice
+from pathlib import Path
+from pickle import load, dump
 from torch import Generator, randperm
 from torch.utils.data import DistributedSampler, Sampler
 from typing import Optional, Union
@@ -28,37 +30,60 @@ from .reaction import ReactionEncoderDataset, ReactionDecoderDataset, PermutedRe
 
 
 class Mixin:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cache, validate, *args, **kwargs):
+        if cache is not None:
+            cache = Path(cache)
+            if cache.exists():
+                if not isinstance(self.dataset, (MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
+                                                 ReactionDecoderDataset, PermutedReactionDataset)):
+                    raise TypeError('Unsupported Dataset')
+                # load existing cache
+                with cache.open('rb') as f:
+                    sizes = load(f)
+                assert isinstance(sizes, list), 'Sampler cache invalid'
+                assert not validate or len(sizes) == len(self.dataset), 'Sampler cache size mismatch'
+                self.sizes = sizes
+                super().__init__(*args, **kwargs)
+                return
+
         if isinstance(self.dataset, (MoleculeDataset, ContrastiveMethylDataset)):
+            ds = self.dataset.molecules  # map-like data. not iterable.
             if self.dataset.unpack:
                 # 12 bit - atoms count
-                self.sizes = [MoleculeContainer.pack_len(m) for m in self.dataset.molecules]
+                self.sizes = [MoleculeContainer.pack_len(ds[m]) for m in range(len(ds))]
             else:
-                self.sizes = [len(m) for m in self.dataset.molecules]
+                self.sizes = [len(ds[m]) for m in range(len(ds))]
         elif isinstance(self.dataset, ReactionEncoderDataset):
+            ds = self.dataset.reactions
             x = int(self.dataset.add_molecule_cls)
             if self.dataset.unpack:
                 self.sizes = sizes = []
-                for r in self.dataset.reactions:
-                    rs, _, ps = ReactionContainer.pack_len(r)
+                for r in range(len(ds)):
+                    rs, _, ps = ReactionContainer.pack_len(ds[r])
                     sizes.append(sum(m + x for m in rs) + sum(m + x for m in ps))
             else:
                 self.sizes = [sum(len(m) + x for m in r.reactants) + sum(len(m) + x for m in r.products)
-                              for r in self.dataset.reactions]
+                              for r in (ds[r] for r in range(len(ds)))]
         elif isinstance(self.dataset, (ReactionDecoderDataset, PermutedReactionDataset)):
+            ds = self.dataset.reactions
             x = int(self.dataset.add_molecule_cls)
             y = int(self.dataset.add_cls)
             if self.dataset.unpack:
                 self.sizes = sizes = []
-                for r in self.dataset.reactions:
-                    rs, _, ps = ReactionContainer.pack_len(r)
+                for r in range(len(ds)):
+                    rs, _, ps = ReactionContainer.pack_len(ds[r])
                     sizes.append(max(sum(m + x for m in rs), sum(m + x for m in ps) + y))
             else:
                 self.sizes = [max(sum(len(m) + x for m in r.reactants),
                                   sum(len(m) + x for m in r.products) + y)
-                              for r in self.dataset.reactions]
+                              for r in (ds[r] for r in range(len(ds)))]
         else:
-            raise TypeError
+            raise TypeError('Unsupported Dataset')
+
+        if cache is not None:
+            # save cache
+            with cache.open('wb') as f:
+                dump(self.sizes, f)
         super().__init__(*args, **kwargs)
 
     @cached_property
@@ -102,7 +127,8 @@ class Mixin:
 class StructureSampler(Mixin, Sampler):
     def __init__(self, dataset: Union[MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
                                       ReactionDecoderDataset, PermutedReactionDataset],
-                 batch_size: int, shuffle: bool = True, seed: int = 0):
+                 batch_size: int, shuffle: bool = True, seed: int = 0, *,
+                 cache: Union[Path, str, None] = None, validate_cache: bool = True):
         """
         Sample molecules or reactions locally grouped by size to reduce idle calculations on paddings.
 
@@ -111,12 +137,14 @@ class StructureSampler(Mixin, Sampler):
          [0, 2, 3, 1, 4, 6, 5] - output indices for batch_size=3
 
         :param batch_size: expected batch size
+        :param cache: path to cache file for [re]storing size index. caching disabled by default.
+        :param validate_cache: check cache-dataset size mismatch
         """
         self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.seed = seed
-        super().__init__(dataset)
+        super().__init__(cache, validate_cache, dataset)
 
     def __iter__(self):
         if self.shuffle:
@@ -138,15 +166,19 @@ class DistributedStructureSampler(Mixin, DistributedSampler):
     def __init__(self, dataset: Union[MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
                                       ReactionDecoderDataset, PermutedReactionDataset],
                  batch_size: int, num_replicas: Optional[int] = None,
-                 rank: Optional[int] = None, shuffle: bool = True, seed: int = 0):
+                 rank: Optional[int] = None, shuffle: bool = True, seed: int = 0, *,
+                 cache: Union[Path, str, None] = None, validate_cache: bool = True):
         """
         Sample molecules locally grouped by size to reduce idle calculations on paddings.
 
         :param batch_size: expected batch size
+        :param cache: path to cache file for [re]storing size index. caching disabled by default.
+        :param validate_cache: check cache-dataset size mismatch
         """
         self.dataset = dataset  # ad-hoc for correct mixin init
         self.batch_size = batch_size
-        super().__init__(dataset=dataset, num_replicas=num_replicas, rank=rank, shuffle=shuffle, seed=seed)
+        super().__init__(cache, validate_cache, dataset=dataset, num_replicas=num_replicas, rank=rank, shuffle=shuffle,
+                         seed=seed)
 
     def __iter__(self):
         if self.shuffle:
