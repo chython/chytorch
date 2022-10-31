@@ -39,7 +39,7 @@ def contrastive_collate(batch) -> Tuple[TensorType['2*batch', 'atoms', int], Ten
 
 
 class ContrastiveDataset(Dataset):
-    def __init__(self, molecules: List[List[Union[bytes, MoleculeContainer]]], *, distance_cutoff: int = 10,
+    def __init__(self, molecules: List[List[Union[bytes, MoleculeContainer]]], *, max_distance: int = 10,
                  add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
                  unpack: bool = False):
         """
@@ -52,7 +52,7 @@ class ContrastiveDataset(Dataset):
         See MoleculeDataset for other params description.
         """
         self.molecules = molecules
-        self.distance_cutoff = distance_cutoff
+        self.max_distance = max_distance
         self.add_cls = add_cls
         self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
@@ -78,7 +78,7 @@ class ContrastiveDataset(Dataset):
         i, p = self.total[item]
         mols = self.molecules[i]
         if (n := len(mols)) == 1:  # no pairs
-            m = MoleculeDataset(mols, distance_cutoff=self.distance_cutoff,
+            m = MoleculeDataset(mols, max_distance=self.max_distance,
                                 add_cls=self.add_cls, symmetric_cls=self.symmetric_cls, unpack=self.unpack,
                                 disable_components_interaction=self.disable_components_interaction)[0]
             return m, m
@@ -96,7 +96,7 @@ class ContrastiveDataset(Dataset):
             m1 = mols[m1]
             m2 = mols[m2]
 
-        ms = MoleculeDataset([m1, m2], distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
+        ms = MoleculeDataset([m1, m2], max_distance=self.max_distance, add_cls=self.add_cls,
                              symmetric_cls=self.symmetric_cls, unpack=self.unpack,
                              disable_components_interaction=self.disable_components_interaction)
         return ms[0], ms[1]
@@ -104,7 +104,7 @@ class ContrastiveDataset(Dataset):
 
 class ContrastiveMethylDataset(Dataset):
     def __init__(self, molecules: List[Union[bytes, MoleculeContainer]], *, rate: float = .15,
-                 distance_cutoff: int = 10, add_cls: bool = True, symmetric_cls: bool = True,
+                 max_distance: int = 10, add_cls: bool = True, symmetric_cls: bool = True,
                  disable_components_interaction: bool = False, unpack: bool = False):
         """
         Prepare pairs of "similar" molecules.
@@ -119,7 +119,7 @@ class ContrastiveMethylDataset(Dataset):
         """
         self.molecules = molecules
         self.rate = rate
-        self.distance_cutoff = distance_cutoff
+        self.max_distance = max_distance
         self.add_cls = add_cls
         self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
@@ -150,7 +150,7 @@ class ContrastiveMethylDataset(Dataset):
             m2.add_bond(n, m2.add_atom(C()), 1)
             if hgs[n] is None:  # aryl
                 hgs[n] = 0
-        ms = MoleculeDataset([m1, m2], distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
+        ms = MoleculeDataset([m1, m2], max_distance=self.max_distance, add_cls=self.add_cls,
                              symmetric_cls=self.symmetric_cls,
                              disable_components_interaction=self.disable_components_interaction)
         return ms[0], ms[1]

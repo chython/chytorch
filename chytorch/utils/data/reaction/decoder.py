@@ -58,7 +58,7 @@ def collate_decoded_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int
 
 
 class ReactionDecoderDataset(Dataset):
-    def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, distance_cutoff: int = 10,
+    def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, max_distance: int = 10,
                  add_cls: bool = True, add_molecule_cls: bool = True, symmetric_cls: bool = True,
                  disable_components_interaction: bool = False, hide_molecule_cls: bool = True, unpack: bool = False):
         """
@@ -68,7 +68,7 @@ class ReactionDecoderDataset(Dataset):
             roles: 2 reactants, 3 products, 0 padding, 1 cls token.
 
         :param reactions: map-like reactions collection
-        :param distance_cutoff: set distances greater than cutoff to cutoff value
+        :param max_distance: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position of products
         :param add_molecule_cls: add special token at first position of each molecule
         :param symmetric_cls: do bidirectional attention of molecular cls to atoms and back
@@ -79,7 +79,7 @@ class ReactionDecoderDataset(Dataset):
             assert not hide_molecule_cls, 'add_molecule_cls should be True if hide_molecule_cls is True'
             assert not symmetric_cls, 'add_molecule_cls should be True if symmetric_cls is True'
         self.reactions = reactions
-        self.distance_cutoff = distance_cutoff
+        self.max_distance = max_distance
         self.add_cls = add_cls
         self.add_molecule_cls = add_molecule_cls
         self.symmetric_cls = symmetric_cls
@@ -95,7 +95,7 @@ class ReactionDecoderDataset(Dataset):
         rxn = self.reactions[item]
         if self.unpack:
             rxn = ReactionContainer.unpack(rxn)
-        molecules = MoleculeDataset(rxn.reactants + rxn.products, distance_cutoff=self.distance_cutoff,
+        molecules = MoleculeDataset(rxn.reactants + rxn.products, max_distance=self.max_distance,
                                     add_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
                                     disable_components_interaction=self.disable_components_interaction)
         r_atoms, r_neighbors, r_distances = [], [], []

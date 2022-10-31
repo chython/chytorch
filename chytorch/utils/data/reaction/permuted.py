@@ -93,7 +93,7 @@ def collate_permuted_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', in
 
 class PermutedReactionDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, rate: float = .15,
-                 distance_cutoff: int = 10, add_cls: bool = True, add_molecule_cls: bool = True,
+                 max_distance: int = 10, add_cls: bool = True, add_molecule_cls: bool = True,
                  symmetric_cls: bool = True, disable_components_interaction: bool = False,
                  hide_molecule_cls: bool = True, unpack: bool = False):
         """
@@ -105,7 +105,7 @@ class PermutedReactionDataset(Dataset):
         """
         self.rate = rate
         self.reactions = reactions
-        self.distance_cutoff = distance_cutoff
+        self.max_distance = max_distance
         self.add_cls = add_cls
         self.add_molecule_cls = add_molecule_cls
         self.symmetric_cls = symmetric_cls
@@ -139,7 +139,7 @@ class PermutedReactionDataset(Dataset):
                     s, h = choice(p)
                     a.__class__ = Element.from_symbol(s)
                     hgs[n] = h
-        return *ReactionDecoderDataset((r,), distance_cutoff=self.distance_cutoff, add_cls=self.add_cls,
+        return *ReactionDecoderDataset((r,), max_distance=self.max_distance, add_cls=self.add_cls,
                                        add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
                                        disable_components_interaction=self.disable_components_interaction,
                                        hide_molecule_cls=self.hide_molecule_cls)[0], LongTensor(labels)

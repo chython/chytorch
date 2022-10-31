@@ -53,9 +53,9 @@ def collate_molecules(batch) -> Tuple[TensorType['batch', 'atoms', int], TensorT
 
 
 class MoleculeDataset(Dataset):
-    def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *, distance_cutoff: int = 10,
+    def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *, max_distance: int = 10,
                  add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
-                 unpack: bool = False):
+                 unpack: bool = False, distance_cutoff=None):
         """
         convert molecules to tuple of:
             atoms vector with atomic numbers + 2,
@@ -69,7 +69,7 @@ class MoleculeDataset(Dataset):
               that code unreachable atoms (e.g. salts).
 
         :param molecules: map-like molecules collection
-        :param distance_cutoff: set distances greater than cutoff to cutoff value
+        :param max_distance: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position
         :param symmetric_cls: do bidirectional attention of cls to atoms and back
         :param disable_components_interaction: treat components as isolated molecules
@@ -77,7 +77,8 @@ class MoleculeDataset(Dataset):
         """
         assert add_cls or not symmetric_cls, 'add_cls should be True if symmetric_cls is True'
         self.molecules = molecules
-        self.distance_cutoff = distance_cutoff
+        # distance_cutoff is deprecated
+        self.max_distance = distance_cutoff if distance_cutoff is not None else max_distance
         self.add_cls = add_cls
         self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
@@ -103,7 +104,7 @@ class MoleculeDataset(Dataset):
 
         sp = shortest_path(mol.adjacency_matrix(), method='FW', directed=False, unweighted=True) + 2
         nan_to_num(sp, copy=False, posinf=(0 if self.disable_components_interaction else 1))
-        minimum(sp, self.distance_cutoff + 2, out=sp)
+        minimum(sp, self.max_distance + 2, out=sp)
         if self.add_cls:
             tmp = ones((len(atoms), len(atoms)))
             if not self.symmetric_cls:
