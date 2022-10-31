@@ -1,12 +1,12 @@
-import chython
 import pandas as pd
 import torch
 import torch.nn as nn
 from chython import smiles
+from torch.utils.data import DataLoader
+
 from chytorch.nn import MoleculeEncoder
 from chytorch.utils import data
 from chytorch.utils.data import chained_collate
-from torch.utils.data import DataLoader
 
 BATCH_SIZE = 10
 LEARNING_RATE = 0.01
@@ -24,10 +24,10 @@ class Data:
     def read_csv(self):
         df = pd.read_csv(self.path_to_csv)
         df = df[['std_smiles', 'activity', 'dataset']]
-        mol_containers_train = [smiles(i) for i in df[df.dataset == 'train'].std_smiles[:100]]
-        mol_containers_test = [smiles(i) for i in df[df.dataset == 'test'].std_smiles[:100]]
-        y_train = df[df.dataset == 'train'].activity[:100]
-        y_test = df[df.dataset == 'test'].activity[:100]
+        mol_containers_train = [smiles(i) for i in df[df.dataset == 'train'].std_smiles]
+        mol_containers_test = [smiles(i) for i in df[df.dataset == 'test'].std_smiles]
+        y_train = df[df.dataset == 'train'].activity
+        y_test = df[df.dataset == 'test'].activity
         self.train_containers = mol_containers_train
         self.y_train = torch.Tensor(y_train.to_list())
         self.test_containers = mol_containers_test
