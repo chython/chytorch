@@ -32,7 +32,8 @@ from .reaction import ReactionEncoderDataset, ReactionDecoderDataset, PermutedRe
 class Mixin:
     def __init__(self, cache, validate, *args, **kwargs):
         if cache is not None:
-            cache = Path(cache)
+            if isinstance(cache, str):
+                cache = Path(cache)
             if cache.exists():
                 if not isinstance(self.dataset, (MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
                                                  ReactionDecoderDataset, PermutedReactionDataset)):

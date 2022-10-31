@@ -38,15 +38,18 @@ class LMDBMapper(Dataset):
         self.db = db
         self.cache = cache
 
-        if cache is not None:
+        if cache is None:
+            return
+        if isinstance(cache, str):
             cache = Path(cache)
-            if cache.exists():
-                # load existing cache
-                with cache.open('rb') as f:
-                    mapping = load(f)
-                assert isinstance(mapping, dict), 'Mapper cache invalid'
-                assert not validate_cache or len(mapping) == db.stat()['entries'], 'Mapper cache size mismatch'
-                self._mapping = mapping
+        if not cache.exists():
+            return
+        # load existing cache
+        with cache.open('rb') as f:
+            mapping = load(f)
+        assert isinstance(mapping, dict), 'Mapper cache invalid'
+        assert not validate_cache or len(mapping) == db.stat()['entries'], 'Mapper cache size mismatch'
+        self._mapping = mapping
 
     def __len__(self):
         try:
@@ -61,17 +64,18 @@ class LMDBMapper(Dataset):
             self._tr = tr = self.db.begin()
 
         try:
-            mp = self._mapping
+            mapping = self._mapping
         except AttributeError:
             with tr.cursor() as c:
                 # build mapping
-                self._mapping = mp = dict(enumerate(c.iternext(keys=True, values=False)))
-            if self.cache is not None:
-                # save to cache
-                with Path(self.cache).open('wb') as f:
-                    dump(mp, f)
+                self._mapping = mapping = dict(enumerate(c.iternext(keys=True, values=False)))
+            if (cache := self.cache) is not None:  # save to cache
+                if isinstance(cache, str):
+                    cache = Path(cache)
+                with cache.open('wb') as f:
+                    dump(mapping, f)
 
-        return tr.get(mp[item])
+        return tr.get(mapping[item])
 
     def size(self, dim):
         if dim == 0:
