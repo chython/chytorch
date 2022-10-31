@@ -24,38 +24,35 @@ from .mapper import LMDBMapper
 
 
 class LMDBProperties(LMDBMapper):
-    __slots__ = ('format_spec', 'columns', 'dtype', 'limit', '_struct', '_readonly', '_count')
+    __slots__ = ('format_spec', 'columns', 'dtype', 'limit', 'map_size', '_struct', '_readonly', '_count')
 
-    def __init__(self, db: 'lmdb.Environment', format_spec: str, *,
+    def __init__(self, db: str, format_spec: str, *,
                  columns: Optional[Tuple[int, ...]] = None, dtype=float32, limit: int = 1000,
-                 cache: Union[Path, str, None] = None, validate_cache: bool = True):
+                 map_size=1_000_000_000, cache: Union[Path, str, None] = None, validate_cache: bool = True):
         """
         Map LMDB key-value storage to the integer-key - Tensor value torch Dataset.
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
 
-        :param db: lmdb environment object
+        :param db: lmdb dir path
         :param format_spec: python.Struct format for unpacking data
         :param columns: column indices in data for retrieving
         :param dtype: output tensor dtype
         :param limit: write transaction putting before commit limit
+        :param map_size: lmdb map_size
         """
         super().__init__(db, cache=cache, validate_cache=validate_cache)
         self.format_spec = format_spec
         self.columns = columns
         self.dtype = dtype
         self.limit = limit
+        self.map_size = map_size
         self._struct = Struct(format_spec)
         self._readonly = True
 
     def __getitem__(self, item: int) -> Tensor:
         if not self._readonly:
             self._readonly = True
-            try:
-                self._tr.commit()  # close write transaction
-            except AttributeError:
-                pass  # transaction not found
-            else:
-                del self._tr
+            self.__del__()  # close write transaction/db
 
         data = super().__getitem__(item)
         p = self._struct.unpack(data)
@@ -72,17 +69,15 @@ class LMDBProperties(LMDBMapper):
             except AttributeError:
                 pass
 
-            try:
-                self._tr.commit()  # close and remove transaction
-            except AttributeError:
-                pass
-            else:
-                del self._tr
+            self.__del__()  # close and remove transaction
 
         try:
             tr = self._tr
         except AttributeError:
-            self._tr = tr = self.db.begin(write=True)
+            from lmdb import Environment
+
+            self._db = db = Environment(self.db, map_size=self.map_size)
+            self._tr = tr = db.begin(write=True)
             self._count = 0
 
         tr.put(key, value)

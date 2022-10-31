@@ -24,14 +24,14 @@ from typing import Union
 
 
 class LMDBMapper(Dataset):
-    __slots__ = ('db', 'cache', '_tr', '_mapping')
+    __slots__ = ('db', 'cache', '_db', '_tr', '_mapping')
 
-    def __init__(self, db: 'lmdb.Environment', *, cache: Union[Path, str, None] = None, validate_cache: bool = True):
+    def __init__(self, db: str, *, cache: Union[Path, str, None] = None, validate_cache: bool = True):
         """
         Map LMDB key-value storage to the integer-key - value torch Dataset.
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
 
-        :param db: lmdb environment object
+        :param db: lmdb dir path
         :param cache: path to cache file for [re]storing index. caching disabled by default.
         :param validate_cache: check cache-dataset size mismatch
         """
@@ -48,20 +48,31 @@ class LMDBMapper(Dataset):
         with cache.open('rb') as f:
             mapping = load(f)
         assert isinstance(mapping, dict), 'Mapper cache invalid'
-        assert not validate_cache or len(mapping) == db.stat()['entries'], 'Mapper cache size mismatch'
+        if validate_cache:
+            from lmdb import Environment
+
+            with Environment(db, readonly=True) as f:
+                assert len(mapping) == f.stat()['entries'], 'Mapper cache size mismatch'
         self._mapping = mapping
 
     def __len__(self):
         try:
             return len(self._mapping)
         except AttributeError:
-            return self.db.stat()['entries']
+            # temporary open db
+            from lmdb import Environment
+
+            with Environment(self.db, readonly=True) as f:
+                return f.stat()['entries']
 
     def __getitem__(self, item: int):
         try:
             tr = self._tr
         except AttributeError:
-            self._tr = tr = self.db.begin()
+            from lmdb import Environment
+
+            self._db = db = Environment(self.db, readonly=True)
+            self._tr = tr = db.begin()
 
         try:
             mapping = self._mapping
@@ -87,8 +98,11 @@ class LMDBMapper(Dataset):
     def __del__(self):
         try:
             self._tr.commit()
+            self._db.close()
         except AttributeError:
             pass
+        else:
+            del self._tr, self._db
 
 
 __all__ = ['LMDBMapper']
