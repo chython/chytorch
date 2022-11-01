@@ -41,7 +41,7 @@ Example:
         r.canonicalize()  # fix aromaticity and functional groups
         data.append(r)
 
-    ds = data.MoleculeDatasetdata)
+    ds = data.MoleculeDataset(data)
     dl = DataLoader(ds, collate_fn=chytorch.utils.data.collate_molecules, batch_size=10)
 
 **Forward call:**
