@@ -73,10 +73,10 @@ class Network(torch.nn.Module):
         super(Network, self).__init__()
         self.input_encoder = MoleculeEncoder()
         self.linear = nn.Sequential(
-            nn.Linear(in_features=1024, out_features=516),
-            nn.Dropout(0.1),
+            nn.Linear(in_features=1024, out_features=512),
             nn.ReLU(),
-            nn.Linear(in_features=516, out_features=1),
+            nn.Dropout(0.1),
+            nn.Linear(in_features=512, out_features=1),
             nn.Sigmoid(),
         )
 
