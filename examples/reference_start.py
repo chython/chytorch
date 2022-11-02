@@ -5,7 +5,7 @@ import torch.nn as nn
 from chython import smiles
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from typing import Optional
+from typing import Optional, Union
 
 from chytorch.nn import MoleculeEncoder, Slicer
 from chytorch.utils.data import MoleculeDataset, chained_collate, collate_molecules
@@ -47,20 +47,23 @@ class PandasData(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         df = self.prepare_data()
         if stage == "fit" or stage is None:
-            df_train = df[df.dataset == "train"][:100]
+            df_train = df[df.dataset == "train"][:200]
             mols = [smiles(m) for m in df_train[self.structure]]
+            [mol.kekule() for mol in mols]
             self.train_x = MoleculeDataset(mols)
             self.train_y = torch.Tensor(df_train[self.property].to_numpy())
 
         if stage == "validation" or stage is None:
-            df_validation = df[df.dataset == "validation"][:100]
+            df_validation = df[df.dataset == "validation"][:200]
             mols = [smiles(m) for m in df_validation[self.structure]]
+            [mol.kekule() for mol in mols]
             self.validation_x = MoleculeDataset(mols)
             self.validation_y = torch.Tensor(df_validation[self.property].to_numpy())
 
         if stage == "test" or stage is None:
             df_test = df[df.dataset == "test"][:100]
             mols = [smiles(m) for m in df_test[self.structure]]
+            [mol.kekule() for mol in mols]
             self.test_x = MoleculeDataset(mols)
             self.test_y = torch.Tensor(df_test[self.property].to_numpy())
 
@@ -89,17 +92,25 @@ class PandasData(pl.LightningDataModule):
 
 
 class Modeler:
-    def __init__(self, loss_function, epochs: int, learning_rate, csv: str):
+    def __init__(
+        self,
+        loss_function,
+        epochs: int,
+        learning_rate: Union[float, int],
+        csv: str,
+        model_path: Optional[str] = None,
+    ):
         self.network = None
         self.optimizer = None
         self.loss_function = loss_function
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.csv = csv
+        self.model_path = model_path
 
-    def train_loop(self, dataset_loader):
+    def train_loop(self, dataset_loader: DataLoader):
         size = len(dataset_loader.dataset)
-        for batch, (X, y) in enumerate(dataset_loader, 1):
+        for batch, (X, y) in enumerate(dataset_loader):
             # compute prediction and loss
             predictions = self.network(X)
             loss = self.loss_function(predictions.squeeze(-1), y)
@@ -111,7 +122,7 @@ class Modeler:
                 loss_v, current = loss.item(), batch * len(X[0])
                 print(f"loss: {loss_v:>3f} [{current:>5d}/{size:>5d}]")
 
-    def validation_loop(self, dataset_loader):
+    def validation_loop(self, dataset_loader: DataLoader):
         size = len(dataset_loader.dataset)
         num_batches = len(dataset_loader)
         self.network.eval()
@@ -126,6 +137,9 @@ class Modeler:
         print(
             f"Validation Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n"
         )
+
+    def save(self):
+        torch.save(self.network.state_dict(), self.model_path)
 
     def fit(self):
         """
@@ -153,13 +167,12 @@ class Modeler:
             print(f"Epoch {epoch + 1}\n------")
             self.train_loop(dataset.train_dataloader())
             self.validation_loop(dataset.test_dataloader())
+        if self.model_path:
+            self.save()
 
 
 if __name__ == "__main__":
     modeler = Modeler(
-        loss_function=nn.BCELoss(),
-        epochs=3,
-        learning_rate=2e-5,
-        csv="",
+        loss_function=nn.BCELoss(), epochs=3, learning_rate=2e-5, csv="", model_path=""
     )
     modeler.fit()
