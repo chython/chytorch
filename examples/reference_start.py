@@ -43,7 +43,7 @@ class PandasData(pl.LightningDataModule):
         df = pd.read_csv(self.csv)
         df = df[[self.structure, self.property, self.dataset_type]]
         if stage == "fit" or stage is None:
-            df_train = df[df.dataset == "train"][:100]
+            df_train = df[df.dataset == "train"]
             mols = [smiles(m) for m in df_train[self.structure]]
             for mol in mols:
                 mol.kekule()
@@ -51,7 +51,7 @@ class PandasData(pl.LightningDataModule):
             self.train_y = torch.Tensor(df_train[self.property].to_numpy())
 
         if stage == "validation" or stage is None:
-            df_validation = df[df.dataset == "validation"][:100]
+            df_validation = df[df.dataset == "validation"]
             mols = [smiles(m) for m in df_validation[self.structure]]
             for mol in mols:
                 mol.kekule()
@@ -59,7 +59,7 @@ class PandasData(pl.LightningDataModule):
             self.validation_y = torch.Tensor(df_validation[self.property].to_numpy())
 
         if stage == "test" or stage is None:
-            df_test = df[df.dataset == "test"][:100]
+            df_test = df[df.dataset == "test"]
             mols = [smiles(m) for m in df_test[self.structure]]
             for mol in mols:
                 mol.kekule()
