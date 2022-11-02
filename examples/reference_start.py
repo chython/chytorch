@@ -47,21 +47,21 @@ class PandasData(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         df = self.prepare_data()
         if stage == "fit" or stage is None:
-            df_train = df[df.dataset == "train"][:200]
+            df_train = df[df.dataset == "train"]
             mols = [smiles(m) for m in df_train[self.structure]]
             [mol.kekule() for mol in mols]
             self.train_x = MoleculeDataset(mols)
             self.train_y = torch.Tensor(df_train[self.property].to_numpy())
 
         if stage == "validation" or stage is None:
-            df_validation = df[df.dataset == "validation"][:200]
+            df_validation = df[df.dataset == "validation"]
             mols = [smiles(m) for m in df_validation[self.structure]]
             [mol.kekule() for mol in mols]
             self.validation_x = MoleculeDataset(mols)
             self.validation_y = torch.Tensor(df_validation[self.property].to_numpy())
 
         if stage == "test" or stage is None:
-            df_test = df[df.dataset == "test"][:100]
+            df_test = df[df.dataset == "test"]
             mols = [smiles(m) for m in df_test[self.structure]]
             [mol.kekule() for mol in mols]
             self.test_x = MoleculeDataset(mols)
