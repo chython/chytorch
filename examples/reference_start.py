@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from chython import smiles
 from torch.optim import Adam
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 from typing import Optional, Union
 
 from chytorch.nn import MoleculeEncoder, Slicer
@@ -39,45 +39,44 @@ class PandasData(pl.LightningDataModule):
         self.dataset_type = dataset_type
         self.batch_size = batch_size
 
-    def prepare_data(self):
+    def setup(self, stage: Optional[str] = None):
         df = pd.read_csv(self.csv)
         df = df[[self.structure, self.property, self.dataset_type]]
-        return df
-
-    def setup(self, stage: Optional[str] = None):
-        df = self.prepare_data()
         if stage == "fit" or stage is None:
-            df_train = df[df.dataset == "train"]
+            df_train = df[df.dataset == "train"][:100]
             mols = [smiles(m) for m in df_train[self.structure]]
-            [mol.kekule() for mol in mols]
+            for mol in mols:
+                mol.kekule()
             self.train_x = MoleculeDataset(mols)
             self.train_y = torch.Tensor(df_train[self.property].to_numpy())
 
         if stage == "validation" or stage is None:
-            df_validation = df[df.dataset == "validation"]
+            df_validation = df[df.dataset == "validation"][:100]
             mols = [smiles(m) for m in df_validation[self.structure]]
-            [mol.kekule() for mol in mols]
+            for mol in mols:
+                mol.kekule()
             self.validation_x = MoleculeDataset(mols)
             self.validation_y = torch.Tensor(df_validation[self.property].to_numpy())
 
         if stage == "test" or stage is None:
-            df_test = df[df.dataset == "test"]
+            df_test = df[df.dataset == "test"][:100]
             mols = [smiles(m) for m in df_test[self.structure]]
-            [mol.kekule() for mol in mols]
+            for mol in mols:
+                mol.kekule()
             self.test_x = MoleculeDataset(mols)
             self.test_y = torch.Tensor(df_test[self.property].to_numpy())
 
     def train_dataloader(self):
         return DataLoader(
-            dataset=torch.utils.data.TensorDataset(self.train_x, self.train_y),
+            dataset=TensorDataset(self.train_x, self.train_y),
             collate_fn=chained_collate(collate_molecules, torch.stack),
             batch_size=self.batch_size,
             shuffle=True,
         )
 
-    def val_dataloader(self):
+    def validation_dataloader(self):
         return DataLoader(
-            dataset=torch.utils.data.TensorDataset(self.train_x, self.train_y),
+            dataset=TensorDataset(self.train_x, self.train_y),
             collate_fn=chained_collate(collate_molecules, torch.stack),
             batch_size=self.batch_size,
             shuffle=True,
@@ -85,7 +84,7 @@ class PandasData(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(
-            dataset=torch.utils.data.TensorDataset(self.test_x, self.test_y),
+            dataset=TensorDataset(self.test_x, self.test_y),
             collate_fn=chained_collate(collate_molecules, torch.stack),
             batch_size=self.batch_size,
         )
@@ -166,13 +165,17 @@ class Modeler:
         for epoch in range(self.epochs):
             print(f"Epoch {epoch + 1}\n------")
             self.train_loop(dataset.train_dataloader())
-            self.validation_loop(dataset.test_dataloader())
+            self.validation_loop(dataset.validation_dataloader())
         if self.model_path:
             self.save()
 
 
 if __name__ == "__main__":
     modeler = Modeler(
-        loss_function=nn.BCELoss(), epochs=3, learning_rate=2e-5, csv="", model_path=""
+        loss_function=nn.BCELoss(),
+        epochs=3,
+        learning_rate=2e-5,
+        csv="dataset.csv",
+        model_path="model.pt",
     )
     modeler.fit()

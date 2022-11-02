@@ -32,17 +32,18 @@ Supported `chython.MoleculeContainer` and `chython.ReactionContainer` objects, a
 `chytorch.utils.data.collate_molecules` and `chytorch.utils.data.collate_reactions` - collate functions for `torch.utils.data.DataLoader`.
 
 Example:
-    
+
+    from chython import SMILESRead
+    from chytorch.utils.data import collate_molecules, MoleculeDataset
     from torch.utils.data import DataLoader
-    from chytorch.utils import data
 
     data = []
-    for r in chython.SMILESRead('data.smi'):
+    for r in SMILESRead('data.smi'):
         r.canonicalize()  # fix aromaticity and functional groups
         data.append(r)
 
-    ds = data.MoleculeDataset(data)
-    dl = DataLoader(ds, collate_fn=chytorch.utils.data.collate_molecules, batch_size=10)
+    ds = MoleculeDataset(data)
+    dl = DataLoader(ds, collate_fn=collate_molecules, batch_size=10)
 
 **Forward call:**
 
@@ -59,10 +60,8 @@ Reactions include additional tensor with reaction role codes for each token.
 0 - padding, 1 - reaction CLS, 2 - reactants, 3 - products.
 
     import chytorch.nn import MoleculeEncoder
+    
     encoder = MoleculeEncoder()
-
-    encoder = chytorch.nn.MoleculeEncoder()
-
     for b in dl:
         encoder(b)
 
@@ -70,12 +69,12 @@ Reactions include additional tensor with reaction role codes for each token.
 
 `chytorch.utils.data.chained_collate` - helper for combining different data parts. 
 
-    from torch.utils.data import DataLoader
-    from chytorch.utils.data import chained_collate
-    from chytorch.utils import data
+    from torch import stack
+    from torch.utils.data import DataLoader, TensorDataset
+    from chytorch.utils.data import chained_collate, collate_molecules, MoleculeDataset
 
-    dl = DataLoader(torch.utils.data.TensorDataset(data.MoleculeDataset(molecules_list), properties_tensor),
-        collate_fn=data.chained_collate(chytorch.utils.data.collate_molecules, torch.stack))
+    dl = DataLoader(TensorDataset(MoleculeDataset(molecules_list), properties_tensor),
+        collate_fn=chained_collate(collate_molecules, torch.stack))
 
 
 **Scheduler:**
