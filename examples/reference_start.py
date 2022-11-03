@@ -1,3 +1,4 @@
+import click
 import pandas as pd
 import pytorch_lightning as pl
 import torch
@@ -24,6 +25,7 @@ class PandasData(pl.LightningDataModule):
         structure: str,
         property: str,
         dataset_type: str,
+        prepared_df_path: Optional[str] = None,
         batch_size: int = 32,
     ):
         super().__init__()
@@ -33,18 +35,36 @@ class PandasData(pl.LightningDataModule):
         self.test_y = None
         self.validation_x = None
         self.validation_y = None
+        self.prepared_df_path = prepared_df_path
         self.csv = csv
         self.structure = structure
         self.property = property
         self.dataset_type = dataset_type
         self.batch_size = batch_size
 
-    def setup(self, stage: Optional[str] = None):
+    @staticmethod
+    def prepare_mol(mol_smi):
+        try:
+            mol = smiles(mol_smi)
+            try:
+                mol.kekule()
+            except InvalidAromaticRing:
+                mol = None
+        except Exception:
+            mol = None
+        return mol
+
+    def prepare_data(self):
         df = pd.read_csv(self.csv)
         df = df[[self.structure, self.property, self.dataset_type]]
+        df[self.structure] = df[self.structure].apply(self.prepare_mol)
+        df.to_pickle(self.prepared_df_path)
+
+    def setup(self, stage: Optional[str] = None):
+        df = pd.read_pickle(self.prepared_df_path)
         if stage == "fit" or stage is None:
             df_train = df[df.dataset == "train"]
-            mols = [smiles(m) for m in df_train[self.structure]]
+            mols = df_train[self.structure].to_list()
             for mol in mols:
                 mol.kekule()
             self.train_x = MoleculeDataset(mols)
@@ -52,7 +72,7 @@ class PandasData(pl.LightningDataModule):
 
         if stage == "validation" or stage is None:
             df_validation = df[df.dataset == "validation"]
-            mols = [smiles(m) for m in df_validation[self.structure]]
+            mols = df_validation[self.structure].to_list()
             for mol in mols:
                 mol.kekule()
             self.validation_x = MoleculeDataset(mols)
@@ -60,8 +80,8 @@ class PandasData(pl.LightningDataModule):
 
         if stage == "test" or stage is None:
             df_test = df[df.dataset == "test"]
-            mols = [smiles(m) for m in df_test[self.structure]]
-            for mol in mols:
+            mols = df_test[self.structure].to_list()
+            for mol in df_test[self.structure]:
                 mol.kekule()
             self.test_x = MoleculeDataset(mols)
             self.test_y = torch.Tensor(df_test[self.property].to_numpy())
@@ -96,7 +116,6 @@ class Modeler:
         loss_function,
         epochs: int,
         learning_rate: Union[float, int],
-        csv: str,
         model_path: Optional[str] = None,
     ):
         self.network = None
@@ -104,7 +123,6 @@ class Modeler:
         self.loss_function = loss_function
         self.learning_rate = learning_rate
         self.epochs = epochs
-        self.csv = csv
         self.model_path = model_path
 
     def train_loop(self, dataset_loader: DataLoader):
@@ -140,18 +158,10 @@ class Modeler:
     def save(self):
         torch.save(self.network.state_dict(), self.model_path)
 
-    def fit(self):
+    def fit(self, dataset):
         """
         Run model training
         """
-        dataset = PandasData(
-            csv=self.csv,
-            structure="std_smiles",
-            property="activity",
-            dataset_type="dataset",
-            batch_size=10,
-        )
-        dataset.setup()
         self.network = nn.Sequential(
             MoleculeEncoder(),
             Slicer(slice(None), 0),
@@ -170,12 +180,36 @@ class Modeler:
             self.save()
 
 
-if __name__ == "__main__":
+@click.command()
+@click.option(
+    "-d", "--path_to_csv", type=click.Path(), help="Path to csv file with data."
+)
+@click.option(
+    "-i",
+    "--path_to_interm_dataset",
+    type=click.Path(),
+    help="Path to pickle with intermediate data.",
+)
+@click.option("-m", "--path_to_model", type=click.Path(), help="Path to model.pt.")
+def train(path_to_csv, path_to_interm_dataset, path_to_model):
+    dataset = PandasData(
+        csv=path_to_csv,
+        structure="std_smiles",
+        property="activity",
+        dataset_type="dataset",
+        prepared_df_path=path_to_interm_dataset,
+        batch_size=10,
+    )
+    dataset.prepare_data()
+    dataset.setup()
     modeler = Modeler(
         loss_function=nn.BCELoss(),
         epochs=3,
         learning_rate=2e-5,
-        csv="dataset.csv",
-        model_path="model.pt",
+        model_path=path_to_model,
     )
-    modeler.fit()
+    modeler.fit(dataset)
+
+
+if __name__ == "__main__":
+    train()
