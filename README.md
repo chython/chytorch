@@ -59,7 +59,7 @@ Reactions coded in similar way. Molecules atoms and neighbors matrices just stac
 Reactions include additional tensor with reaction role codes for each token.
 0 - padding, 1 - reaction CLS, 2 - reactants, 3 - products.
 
-    import chytorch.nn import MoleculeEncoder
+    from chytorch.nn import MoleculeEncoder
     
     encoder = MoleculeEncoder()
     for b in dl:
