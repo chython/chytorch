@@ -25,7 +25,7 @@ class PandasData(pl.LightningDataModule):
         structure: str,
         property: str,
         dataset_type: str,
-        prepared_df_path: Optional[str] = None,
+        prepared_df_path: str,
         batch_size: int = 32,
     ):
         super().__init__()
@@ -58,6 +58,7 @@ class PandasData(pl.LightningDataModule):
         df = pd.read_csv(self.csv)
         df = df[[self.structure, self.property, self.dataset_type]]
         df[self.structure] = df[self.structure].apply(self.prepare_mol)
+        df.dropna(inplace=True)
         df.to_pickle(self.prepared_df_path)
 
     def setup(self, stage: Optional[str] = None):
@@ -65,24 +66,18 @@ class PandasData(pl.LightningDataModule):
         if stage == "fit" or stage is None:
             df_train = df[df.dataset == "train"]
             mols = df_train[self.structure].to_list()
-            for mol in mols:
-                mol.kekule()
             self.train_x = MoleculeDataset(mols)
             self.train_y = torch.Tensor(df_train[self.property].to_numpy())
 
         if stage == "validation" or stage is None:
             df_validation = df[df.dataset == "validation"]
             mols = df_validation[self.structure].to_list()
-            for mol in mols:
-                mol.kekule()
             self.validation_x = MoleculeDataset(mols)
             self.validation_y = torch.Tensor(df_validation[self.property].to_numpy())
 
         if stage == "test" or stage is None:
             df_test = df[df.dataset == "test"]
             mols = df_test[self.structure].to_list()
-            for mol in df_test[self.structure]:
-                mol.kekule()
             self.test_x = MoleculeDataset(mols)
             self.test_y = torch.Tensor(df_test[self.property].to_numpy())
 
