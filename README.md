@@ -33,13 +33,17 @@ Supported `chython.MoleculeContainer` and `chython.ReactionContainer` objects, a
 
 Example:
 
+    from chython import SMILESRead
+    from chytorch.utils.data import collate_molecules, MoleculeDataset
+    from torch.utils.data import DataLoader
+
     data = []
-    for r in chython.SMILESRead('data.smi'):
+    for r in SMILESRead('data.smi'):
         r.canonicalize()  # fix aromaticity and functional groups
         data.append(r)
 
-    ds = chytorch.utils.data.MoleculeDataset(data)
-    dl = torch.utils.data.DataLoader(ds, collate_fn=chytorch.utils.data.collate_molecules, batch_size=10)
+    ds = MoleculeDataset(data)
+    dl = DataLoader(ds, collate_fn=collate_molecules, batch_size=10)
 
 **Forward call:**
 
@@ -55,8 +59,9 @@ Reactions coded in similar way. Molecules atoms and neighbors matrices just stac
 Reactions include additional tensor with reaction role codes for each token.
 0 - padding, 1 - reaction CLS, 2 - reactants, 3 - products.
 
-    encoder = chytorch.nn.MoleculeEncoder()
-
+    from chytorch.nn import MoleculeEncoder
+    
+    encoder = MoleculeEncoder()
     for b in dl:
         encoder(b)
 
@@ -64,8 +69,12 @@ Reactions include additional tensor with reaction role codes for each token.
 
 `chytorch.utils.data.chained_collate` - helper for combining different data parts. 
 
-    dl = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(chytorch.utils.data.MoleculeDataset(molecules_list), properties_tensor),
-        collate_fn=chytorch.utils.data.chained_collate(chytorch.utils.data.collate_molecules, torch.stack))
+    from torch import stack
+    from torch.utils.data import DataLoader, TensorDataset
+    from chytorch.utils.data import chained_collate, collate_molecules, MoleculeDataset
+
+    dl = DataLoader(TensorDataset(MoleculeDataset(molecules_list), properties_tensor),
+        collate_fn=chained_collate(collate_molecules, torch.stack))
 
 
 **Scheduler:**
