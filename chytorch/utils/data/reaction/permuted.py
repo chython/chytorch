@@ -80,6 +80,7 @@ def collate_permuted_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', in
                                                TensorType['batch*2', 'atoms', int],
                                                TensorType['batch*2', 'atoms', 'atoms', int],
                                                TensorType['batch', 'atoms', float],
+                                               TensorType['batch', 'atoms', float],
                                                TensorType['batch*atoms', int]]:
     """
     Prepares batches of permuted reactions.
@@ -94,8 +95,8 @@ def collate_permuted_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', in
 class PermutedReactionDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, rate: float = .15,
                  max_distance: int = 10, add_cls: bool = True, add_molecule_cls: bool = True,
-                 symmetric_cls: bool = True, disable_components_interaction: bool = False,
-                 hide_molecule_cls: bool = True, unpack: bool = False):
+                 symmetric_cls: bool = True, disable_components_interaction: bool = True,
+                 hide_molecule_cls: bool = False, unpack: bool = False):
         """
         Prepare reactions with randomly permuted "organic" atoms in products.
 
@@ -120,7 +121,7 @@ class PermutedReactionDataset(Dataset):
                                               TensorType['atoms', 'atoms', int],
                                               TensorType['atoms', int], TensorType['atoms', int],
                                               TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', float],
+                                              TensorType['atoms', float], TensorType['atoms', float],
                                               TensorType['atoms', int]]:
         r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item].copy()
 

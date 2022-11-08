@@ -29,14 +29,15 @@ from ..molecule import MoleculeDataset
 def collate_decoded_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int],
                                               TensorType['batch*2', 'atoms', int],
                                               TensorType['batch*2', 'atoms', 'atoms', int],
+                                              TensorType['batch', 'atoms', float],
                                               TensorType['batch', 'atoms', float]]:
     """
     Prepares batches of reactions.
 
-    :return: atoms, neighbors, distances, reactants atoms padding mask.
+    :return: atoms, neighbors, distances, reactants and products atoms padding masks.
     """
-    atoms, neighbors, distances, masks = [], [], [], []
-    for ar, nr, dr, ap, np, dp, m in batch:
+    atoms, neighbors, distances, r_mask, p_mask = [], [], [], [], []
+    for ar, nr, dr, ap, np, dp, mr, mp in batch:
         atoms.append(ar)
         neighbors.append(nr)
         distances.append(dr)
@@ -45,7 +46,8 @@ def collate_decoded_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int
         neighbors.append(np)
         distances.append(dp)
 
-        masks.append(m)
+        r_mask.append(mr)
+        p_mask.append(mp)
 
     pa = pad_sequence(atoms, True)
     b, s = pa.shape
@@ -54,13 +56,13 @@ def collate_decoded_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int
     for n, d in enumerate(distances):
         s = d.size(0)
         tmp[n, :s, :s] = d
-    return pa, pad_sequence(neighbors, True), tmp, pad_sequence(masks, True, -inf)
+    return pa, pad_sequence(neighbors, True), tmp, pad_sequence(r_mask, True, -inf), pad_sequence(p_mask, True, -inf)
 
 
 class ReactionDecoderDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, max_distance: int = 10,
                  add_cls: bool = True, add_molecule_cls: bool = True, symmetric_cls: bool = True,
-                 disable_components_interaction: bool = False, hide_molecule_cls: bool = True, unpack: bool = False):
+                 disable_components_interaction: bool = True, hide_molecule_cls: bool = False, unpack: bool = False):
         """
         convert reactions to tuple of:
             atoms, neighbors and distances tensors similar to molecule dataset.
@@ -73,7 +75,7 @@ class ReactionDecoderDataset(Dataset):
         :param add_molecule_cls: add special token at first position of each molecule
         :param symmetric_cls: do bidirectional attention of molecular cls to atoms and back
         :param disable_components_interaction: treat molecule components as isolated molecules
-        :param hide_molecule_cls: disable attention of products atoms to reactants molecule cls tokens
+        :param hide_molecule_cls: disable attention of products atoms to molecule cls tokens
         """
         if not add_molecule_cls:
             assert not hide_molecule_cls, 'add_molecule_cls should be True if hide_molecule_cls is True'
@@ -91,7 +93,7 @@ class ReactionDecoderDataset(Dataset):
                                               TensorType['atoms', 'atoms', int],
                                               TensorType['atoms', int], TensorType['atoms', int],
                                               TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', float]]:
+                                              TensorType['atoms', float], TensorType['atoms', float]]:
         rxn = self.reactions[item]
         if self.unpack:
             rxn = ReactionContainer.unpack(rxn)
@@ -123,12 +125,18 @@ class ReactionDecoderDataset(Dataset):
         # prevent size mismatch of mask and padded batch
         rs = r_atoms.size(0)
         ps = p_atoms.size(0)
-        # reactant padding mask
+        # reactant and product padding masks
         if rs < ps:
-            mask = zeros(ps, dtype=float32)
-            mask[rs:] = -inf  # mask padding
+            r_mask = zeros(ps, dtype=float32)
+            r_mask[rs:] = -inf  # mask padding
+            p_mask = zeros(ps, dtype=float32)
         else:
-            mask = zeros(rs, dtype=float32)
+            r_mask = zeros(rs, dtype=float32)
+            if rs > ps:
+                p_mask = zeros(rs, dtype=float32)
+                p_mask[ps:] = -inf  # mask padding
+            else:  # rs == ps
+                p_mask = zeros(ps, dtype=float32)
 
         # fill distance matrix diagonally
         tmp = zeros(rs, rs, dtype=int32)
@@ -136,7 +144,7 @@ class ReactionDecoderDataset(Dataset):
         for d in r_distances:
             if self.hide_molecule_cls:
                 # disable attention of products atoms to reactants cls tokens
-                mask[i] = -inf
+                r_mask[i] = -inf
             j = i + d.size(0)
             tmp[i:j, i:j] = d
             i = j
@@ -152,12 +160,16 @@ class ReactionDecoderDataset(Dataset):
             i = 0
         for d in p_distances:
             if self.hide_molecule_cls:
-                tmp[0, i] = 0
+                # disable attention of products atoms to products cls tokens
+                p_mask[i] = -inf
+                if self.add_cls:
+                    # disable rxn cls attention to products cls tokens
+                    tmp[0, i] = 0
             j = i + d.size(0)
             tmp[i:j, i:j] = d
             i = j
         p_distances = tmp
-        return r_atoms, cat(r_neighbors), r_distances, p_atoms, cat(p_neighbors), p_distances, mask
+        return r_atoms, cat(r_neighbors), r_distances, p_atoms, cat(p_neighbors), p_distances, r_mask, p_mask
 
     def __len__(self):
         return len(self.reactions)

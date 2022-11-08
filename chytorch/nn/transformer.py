@@ -47,12 +47,11 @@ class EncoderLayer(Module):
 
     def forward(self, x: Tensor, attn_mask: Tensor, *,
                 need_embedding: bool = True, need_weights: bool = False) -> Tuple[Optional[Tensor], Optional[Tensor]]:
-        t = x.transpose(1, 0)  # switch Batch and Sequence. torch-1.8 compatible.
-        e, a = self.self_attn(t, t, t, attn_mask=attn_mask, need_weights=need_weights)
+        tx = x.transpose(1, 0)  # switch Batch and Sequence. torch-1.8 compatible.
+        e, a = self.self_attn(tx, tx, tx, attn_mask=attn_mask, need_weights=need_weights)
         if need_embedding:
-            e.transpose_(1, 0)  # switch Sequence and Batch
-            e = self.norm1(x + self.dropout1(e))
-            return self.norm2(e + self.dropout3(self.linear2(self.dropout2(self.activation(self.linear1(e)))))), a
+            x = self.norm1(tx + self.dropout1(e)).transpose(1, 0)  # switch Sequence and Batch
+            return self.norm2(x + self.dropout3(self.linear2(self.dropout2(self.activation(self.linear1(x)))))), a
         return None, a
 
 
@@ -69,26 +68,29 @@ class DecoderLayer(Module):
     """
     def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1, activation=GELU, layer_norm_eps=1e-5):
         super().__init__()
-        self.mha_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.tgt_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
 
         self.linear1 = Linear(d_model, dim_feedforward)
         self.linear2 = Linear(dim_feedforward, d_model)
         self.norm1 = LayerNorm(d_model, eps=layer_norm_eps)
         self.norm2 = LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm3 = LayerNorm(d_model, eps=layer_norm_eps)
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
         self.dropout3 = Dropout(dropout)
+        self.dropout4 = Dropout(dropout)
         self.activation = activation()
 
-    def forward(self, x: Tensor, mem: Tensor, attn_mask: Tensor, *,
+    def forward(self, x: Tensor, mem: Tensor, self_attn_mask: Tensor, target_attn_mask: Tensor, *,
                 need_embedding: bool = True, need_weights: bool = False) -> Tuple[Optional[Tensor], Optional[Tensor]]:
         tx = x.transpose(1, 0)  # switch Batch and Sequence. torch-1.8 compatible.
         tm = mem.transpose(1, 0)
-        e, a = self.mha_attn(tx, tm, tm, attn_mask=attn_mask, need_weights=need_weights)
+        tx = self.norm1(tx + self.dropout1(self.self_attn(tx, tx, tx, attn_mask=self_attn_mask, need_weights=False)[0]))
+        e, a = self.tgt_attn(tx, tm, tm, attn_mask=target_attn_mask, need_weights=need_weights)
         if need_embedding:
-            e.transpose_(1, 0)  # switch Sequence and Batch
-            e = self.norm1(x + self.dropout1(e))
-            return self.norm2(e + self.dropout3(self.linear2(self.dropout2(self.activation(self.linear1(e)))))), a
+            x = self.norm2(tx + self.dropout2(e)).transpose(1, 0)  # switch Sequence and Batch
+            return self.norm3(x + self.dropout4(self.linear2(self.dropout3(self.activation(self.linear1(x)))))), a
         return None, a
 
 

@@ -29,6 +29,7 @@ def collate_faked_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int],
                                             TensorType['batch*2', 'atoms', int],
                                             TensorType['batch*2', 'atoms', 'atoms', int],
                                             TensorType['batch', 'atoms', float],
+                                            TensorType['batch', 'atoms', float],
                                             TensorType['batch', int]]:
     """
     Prepares batches of faked reactions.
@@ -41,8 +42,8 @@ def collate_faked_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int],
 class FakeReactionDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, rate: float = .5,
                  max_distance: int = 10, add_cls: bool = True, add_molecule_cls: bool = True,
-                 symmetric_cls: bool = True, disable_components_interaction: bool = False,
-                 hide_molecule_cls: bool = True, unpack: bool = False):
+                 symmetric_cls: bool = True, disable_components_interaction: bool = True,
+                 hide_molecule_cls: bool = False, unpack: bool = False):
         """
         Prepare reactions with switched product and reactant molecules.
 
@@ -69,7 +70,7 @@ class FakeReactionDataset(Dataset):
                                               TensorType['atoms', 'atoms', int],
                                               TensorType['atoms', int], TensorType['atoms', int],
                                               TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', float],
+                                              TensorType['atoms', float], TensorType['atoms', float],
                                               int]:
         r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item].copy()
 

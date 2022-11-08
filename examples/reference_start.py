@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 from chython import smiles
+from chython.exceptions import InvalidAromaticRing
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 from typing import Optional, Union
