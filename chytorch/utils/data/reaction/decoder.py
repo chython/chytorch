@@ -176,9 +176,9 @@ class ReactionDecoderDataset(Dataset):
 
     def size(self, dim):
         if dim == 0:
-            return len(self.reactions)
+            return len(self)
         elif dim is None:
-            return Size((len(self.reactions),))
+            return Size((len(self),))
         raise IndexError
 
 

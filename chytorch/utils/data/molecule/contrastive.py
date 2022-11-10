@@ -20,6 +20,7 @@ from chython import MoleculeContainer
 from chython.periodictable import C
 from math import sqrt
 from random import choice, random
+from torch import Size
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Tuple, Union, List
@@ -65,12 +66,6 @@ class ContrastiveDataset(Dataset):
             else:
                 total.extend((i, x) for x in range(n * (n - 1) // 2))
 
-    def __len__(self):
-        """
-        Number of possible pairs
-        """
-        return len(self.total)
-
     def __getitem__(self, item) -> Tuple[Tuple[TensorType['atoms', int], TensorType['atoms', int],
                                                TensorType['atoms', 'atoms', int]],
                                          Tuple[TensorType['atoms', int], TensorType['atoms', int],
@@ -101,6 +96,19 @@ class ContrastiveDataset(Dataset):
                              disable_components_interaction=self.disable_components_interaction)
         return ms[0], ms[1]
 
+    def __len__(self):
+        """
+        Number of possible pairs
+        """
+        return len(self.total)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
 
 class ContrastiveMethylDataset(Dataset):
     def __init__(self, molecules: List[Union[bytes, MoleculeContainer]], *, rate: float = .15,
@@ -124,9 +132,6 @@ class ContrastiveMethylDataset(Dataset):
         self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
         self.unpack = unpack
-
-    def __len__(self):
-        return len(self.molecules)
 
     def __getitem__(self, item) -> Tuple[Tuple[TensorType['atoms', int], TensorType['atoms', int],
                                                TensorType['atoms', 'atoms', int]],
@@ -154,6 +159,16 @@ class ContrastiveMethylDataset(Dataset):
                              symmetric_cls=self.symmetric_cls,
                              disable_components_interaction=self.disable_components_interaction)
         return ms[0], ms[1]
+
+    def __len__(self):
+        return len(self.molecules)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
 
 
 __all__ = ['ContrastiveDataset', 'ContrastiveMethylDataset', 'contrastive_collate']

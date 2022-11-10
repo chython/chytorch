@@ -19,7 +19,7 @@
 from chython import ReactionContainer
 from chython.periodictable import Element
 from random import random, choice
-from torch import LongTensor, cat
+from torch import LongTensor, cat, Size
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Tuple, Union
@@ -114,9 +114,6 @@ class PermutedReactionDataset(Dataset):
         self.hide_molecule_cls = hide_molecule_cls
         self.unpack = unpack
 
-    def __len__(self):
-        return len(self.reactions)
-
     def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
                                               TensorType['atoms', 'atoms', int],
                                               TensorType['atoms', int], TensorType['atoms', int],
@@ -144,6 +141,16 @@ class PermutedReactionDataset(Dataset):
                                        add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
                                        disable_components_interaction=self.disable_components_interaction,
                                        hide_molecule_cls=self.hide_molecule_cls)[0], LongTensor(labels)
+
+    def __len__(self):
+        return len(self.reactions)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
 
 
 __all__ = ['PermutedReactionDataset', 'collate_permuted_reactions']

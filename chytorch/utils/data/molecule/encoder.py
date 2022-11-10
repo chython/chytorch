@@ -118,9 +118,9 @@ class MoleculeDataset(Dataset):
 
     def size(self, dim):
         if dim == 0:
-            return len(self.molecules)
+            return len(self)
         elif dim is None:
-            return Size((len(self.molecules),))
+            return Size((len(self),))
         raise IndexError
 
 

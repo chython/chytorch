@@ -55,16 +55,6 @@ class LMDBMapper(Dataset):
                 assert len(mapping) == f.stat()['entries'], 'Mapper cache size mismatch'
         self._mapping = mapping
 
-    def __len__(self):
-        try:
-            return len(self._mapping)
-        except AttributeError:
-            # temporary open db
-            from lmdb import Environment
-
-            with Environment(self.db, readonly=True) as f:
-                return f.stat()['entries']
-
     def __getitem__(self, item: int):
         try:
             tr = self._tr
@@ -87,6 +77,16 @@ class LMDBMapper(Dataset):
                     dump(mapping, f)
 
         return tr.get(mapping[item])
+
+    def __len__(self):
+        try:
+            return len(self._mapping)
+        except AttributeError:
+            # temporary open db
+            from lmdb import Environment
+
+            with Environment(self.db, readonly=True) as f:
+                return f.stat()['entries']
 
     def size(self, dim):
         if dim == 0:
