@@ -107,9 +107,8 @@ class ReactionDecoderDataset(Dataset):
             r_neighbors.append(n)
             r_distances.append(d)
 
-        if self.add_cls:
-            # disable rxn cls in molecules encoder
-            p_atoms, p_neighbors = [IntTensor([1])], [IntTensor([0])]
+        if self.add_cls:  # reaction cls = 2
+            p_atoms, p_neighbors = [IntTensor([2])], [IntTensor([0])]
         else:
             p_atoms, p_neighbors = [], []
         p_distances = []

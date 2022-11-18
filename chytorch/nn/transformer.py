@@ -83,10 +83,13 @@ class DecoderLayer(Module):
         self.activation = activation()
 
     def forward(self, x: Tensor, mem: Tensor, self_attn_mask: Tensor, target_attn_mask: Tensor, *,
-                need_embedding: bool = True, need_weights: bool = False) -> Tuple[Optional[Tensor], Optional[Tensor]]:
+                disable_self_attention: bool = False, need_embedding: bool = True, need_weights: bool = False) -> \
+            Tuple[Optional[Tensor], Optional[Tensor]]:
         tx = x.transpose(1, 0)  # switch Batch and Sequence. torch-1.8 compatible.
         tm = mem.transpose(1, 0)
-        tx = self.norm1(tx + self.dropout1(self.self_attn(tx, tx, tx, attn_mask=self_attn_mask, need_weights=False)[0]))
+        if not disable_self_attention:
+            tx = self.norm1(tx + self.dropout1(self.self_attn(tx, tx, tx, attn_mask=self_attn_mask,
+                                                              need_weights=False)[0]))
         e, a = self.tgt_attn(tx, tm, tm, attn_mask=target_attn_mask, need_weights=need_weights)
         if need_embedding:
             x = self.norm2(tx + self.dropout2(e)).transpose(1, 0)  # switch Sequence and Batch

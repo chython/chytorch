@@ -30,7 +30,7 @@ class ReactionDecoder(Module):
                  shared_layers: bool = False, num_in_layers: int = 8, num_ex_layers: int = 8,
                  dim_feedforward: int = 3072, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
         """
-        Reaction TransformerEncoder layer.
+        Reaction TransformerDecoder layer.
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.
@@ -126,7 +126,9 @@ class ReactionDecoder(Module):
 
         if averaged_weights:  # average attention weights from each layer
             w = []
-            for lr in self.layers[:-1]:  # noqa
+            x, a = self.layers[0](x, rct, p_mask, r_mask, disable_self_attention=True, need_weights=True)
+            w.append(a)
+            for lr in self.layers[1:-1]:  # noqa
                 x, a = lr(x, rct, p_mask, r_mask, need_weights=True)
                 w.append(a)
             x, a = self.layers[-1](x, rct, p_mask, r_mask, need_embedding=need_embedding, need_weights=True)
@@ -135,7 +137,10 @@ class ReactionDecoder(Module):
             if need_embedding:
                 return x, w
             return w
-        for lr in self.layers[:-1]:  # noqa
+
+        # skip SA on the first layer for products
+        x, _ = self.layers[0](x, rct, p_mask, r_mask, disable_self_attention=True)
+        for lr in self.layers[1:-1]:  # noqa
             x, _ = lr(x, rct, p_mask, r_mask)
         x, a = self.layers[-1](x, rct, p_mask, r_mask, need_embedding=need_embedding, need_weights=need_weights)
         if need_embedding:

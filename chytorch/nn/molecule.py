@@ -68,9 +68,10 @@ class MoleculeEncoder(Module):
                   Tuple[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms']]]:
         """
         Use 0 for padding.
-        Atoms should be coded by atomic numbers + 2. 1 can be used for cls token, 2 reserved for masks in MLM.
+        Atoms should be coded by atomic numbers + 2.
+        Token 1 reserved for cls token, 2 reserved for reaction cls or training tricks like MLM.
         Neighbors should be coded from 2 (means no neighbors) to max neighbors + 2.
-        Neighbors equal to 1 reserved for masks in MLM. Use 0 for cls.
+        Neighbors equal to 1 reserved for training tricks like MLM. Use 0 for cls.
         Distances should be coded from 2 (means self-loop) to max_distance + 2.
         Non-reachable atoms should be coded by 1.
         """
