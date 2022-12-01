@@ -103,8 +103,8 @@ class ReactionEncoder(Module):
         d_mask = d_mask.expand(-1, self.nhead, n, -1).flatten(end_dim=1)  # BxHxNxN > B*HxNxN
 
         # role is bert sentence encoder used to separate reactants from products and rxn CLS token coding.
-        # roles <= 1 used to zeroing rxn cls token and padding. this zeroing gradients too.
-        x = self.molecule_encoder((atoms, neighbors, distances)).masked_fill((roles <= 1).unsqueeze(-1), 0)
+        # multiplication by roles > 1 used to zeroing rxn cls token and padding. this zeroing gradients too.
+        x = self.molecule_encoder((atoms, neighbors, distances)) * (roles > 1).unsqueeze(-1)
         x = x + self.role_encoder(roles)
 
         if averaged_weights:  # average attention weights from each layer
