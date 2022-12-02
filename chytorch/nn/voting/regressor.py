@@ -16,6 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from math import nan
 from torch import bmm, no_grad, Tensor
 from torch.nn import Dropout, GELU, LayerNorm, LazyLinear, Linear, Module
 from torch.nn.functional import smooth_l1_loss
@@ -92,17 +93,21 @@ class VotingRegressor(Module):
 
     @no_grad()
     def predict(self, x: TensorType['batch', 'embedding'], *,
-                return_std: bool = False) -> Union[TensorType['batch', float], TensorType['batch', 'output', float]]:
+                k_fold: Optional[int] = None) -> Union[TensorType['batch', float],
+                                                       TensorType['batch', 'output', float]]:
         """
         Average prediction
 
-        :param x: features
-        :param return_std: return average prediction and ensemble standard deviation.
+        :param x: features.
+        :param k_fold: average ensemble according to k-fold trick described in the `loss` method.
         """
         p = self.forward(x)
-        if return_std:
-            return p.mean(-1), p.std(-1)
-        return p.mean(-1)
+        if k_fold is not None:
+            m = k_fold_mask(k_fold, self._ensemble, x.size(0), True, p.device).bool()  # B x E
+            if self._output != 1:
+                m = m.unsqueeze(1)  # B x 1 x E
+            p.masked_fill_(m, nan)
+        return p.nanmean(-1)
 
 
 __all__ = ['VotingRegressor']

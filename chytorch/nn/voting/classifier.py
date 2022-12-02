@@ -16,6 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from math import nan
 from torch import bmm, no_grad, Tensor
 from torch.nn import Dropout, GELU, LayerNorm, LazyLinear, Linear, Module
 from torch.nn.functional import cross_entropy, softmax
@@ -102,27 +103,32 @@ class VotingClassifier(Module):
         return self.loss_function(p, y)
 
     @no_grad()
-    def predict(self, x: TensorType['batch', 'embedding']) -> Union[TensorType['batch', int],
-                                                                    TensorType['batch', 'output', int]]:
+    def predict(self, x: TensorType['batch', 'embedding'], *,
+                k_fold: Optional[int] = None) -> Union[TensorType['batch', int], TensorType['batch', 'output', int]]:
         """
         Average class prediction
+
+        :param k_fold: average ensemble according to k-fold trick described in the `loss` method.
         """
-        return self.predict_proba(x).argmax(-1)  # B or B x O
+        return self.predict_proba(x, k_fold=k_fold).argmax(-1)  # B or B x O
 
     @no_grad()
     def predict_proba(self, x: TensorType['batch', 'embedding'], *,
-                      return_std: bool = False) -> Union[TensorType['batch', 'classes', float],
-                                                         TensorType['batch', 'output', 'classes', float]]:
+                      k_fold: Optional[int] = None) -> Union[TensorType['batch', 'classes', float],
+                                                             TensorType['batch', 'output', 'classes', float]]:
         """
         Average probability
 
         :param x: features
-        :param return_std: return average probability and ensemble standard deviation.
+        :param k_fold: average ensemble according to k-fold trick described in the `loss` method.
         """
         p = softmax(self.forward(x), -1)
-        if return_std:
-            return p.mean(-2), p.std(-2)
-        return p.mean(-2)  # B x C or B x O x C
+        if k_fold is not None:
+            m = k_fold_mask(k_fold, self._ensemble, x.size(0), True, p.device).unsqueeze_(-1).bool()  # B x E x 1
+            if self._output != 1:
+                m = m.unsqueeze(1)  # B x 1 x E x 1
+            p.masked_fill_(m, nan)
+        return p.nanmean(-2)  # B x C or B x O x C
 
 
 __all__ = ['VotingClassifier']

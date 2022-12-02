@@ -16,11 +16,13 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from math import nan
 from torch import sigmoid, no_grad
 from torch.nn import GELU
 from torch.nn.functional import binary_cross_entropy_with_logits
 from torchtyping import TensorType
-from typing import Union
+from typing import Union, Optional
+from ._kfold import k_fold_mask
 from .regressor import VotingRegressor
 
 
@@ -34,29 +36,33 @@ class BinaryVotingClassifier(VotingRegressor):
         super().__init__(ensemble, output, hidden, dropout, activation, layer_norm_eps, loss_function)
 
     @no_grad()
-    def predict(self, x: TensorType['batch', 'embedding']) -> Union[TensorType['batch', int],
-                                                                    TensorType['batch', 'output', int]]:
+    def predict(self, x: TensorType['batch', 'embedding'], *,
+                k_fold: Optional[int] = None) -> Union[TensorType['batch', int], TensorType['batch', 'output', int]]:
         """
         Average class prediction
 
         :param x: features
+        :param k_fold: average ensemble according to k-fold trick described in the `loss` method.
         """
-        return (self.predict_proba(x) > .5).long()
+        return (self.predict_proba(x, k_fold=k_fold) > .5).long()
 
     @no_grad()
     def predict_proba(self, x: TensorType['batch', 'embedding'], *,
-                      return_std: bool = False) -> Union[TensorType['batch', float],
-                                                         TensorType['batch', 'output', float]]:
+                      k_fold: Optional[int] = None) -> Union[TensorType['batch', float],
+                                                             TensorType['batch', 'output', float]]:
         """
         Average probability
 
         :param x: features
-        :param return_std: return average probability and ensemble standard deviation.
+        :param k_fold: average ensemble according to k-fold trick described in the `loss` method.
         """
         p = sigmoid(self.forward(x))
-        if return_std:
-            return p.mean(-1), p.std(-1)
-        return p.mean(-1)
+        if k_fold is not None:
+            m = k_fold_mask(k_fold, self._ensemble, x.size(0), True, p.device).bool()  # B x E
+            if self._output != 1:
+                m = m.unsqueeze(1)  # B x 1 x E
+            p.masked_fill_(m, nan)
+        return p.nanmean(-1)
 
 
 __all__ = ['BinaryVotingClassifier']
