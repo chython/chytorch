@@ -17,25 +17,36 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from chython import MoleculeContainer, ReactionContainer
-from torch import Size, tensor, Tensor
+from torch import Size, tensor, Tensor, float32
 from torch.utils.data import Dataset
-from typing import List, Union
+from typing import List, Union, Type
 
 
 class PandasStructureDataset(Dataset):
-    def __init__(self, data, structure: str):
+    def __init__(self, data, structure: str, *, unpack: bool = False,
+                 dtype: Union[Type[MoleculeContainer], Type[ReactionContainer]] = MoleculeContainer):
         """
         Simple wrapper of pandas DataFrame for convenient data accessing.
 
         :param data: `pandas.DataFrame` with chython Molecule or Reaction objects or packed structures
         :param structure: column name with structures
+        :param dtype: type of structure
+        :param unpack: unpack molecules or reactions from bytes
         """
-        assert all(isinstance(x, (MoleculeContainer, ReactionContainer, bytes)) for x in data[structure])
+        if unpack:
+            assert all(isinstance(x, bytes) for x in data[structure]), 'packed structures expected'
+        else:
+            assert all(isinstance(x, dtype) for x in data[structure]), f'{dtype} objects expected'
         self.data = data
         self.structure = structure
+        self.dtype = dtype
+        self.unpack = unpack
 
-    def __getitem__(self, item: int) -> Union[MoleculeContainer, ReactionContainer, bytes]:
-        return self.data[self.structure].iloc[item]
+    def __getitem__(self, item: int) -> Union[MoleculeContainer, ReactionContainer]:
+        x = self.data[self.structure].iloc[item]
+        if self.unpack:
+            return self.dtype.unpack(x)
+        return x
 
     def __len__(self):
         return len(self.data)
@@ -49,18 +60,20 @@ class PandasStructureDataset(Dataset):
 
 
 class PandasPropertiesDataset(Dataset):
-    def __init__(self, data, properties: List[str]):
+    def __init__(self, data, properties: List[str], *, dtype=float32):
         """
         Simple wrapper of pandas DataFrame for convenient data accessing.
 
         :param data: `pandas.DataFrame` with chython Molecule or Reaction objects or packed structures
         :param properties: column names with properties
+        :param dtype: output tensor dtype
         """
         self.data = data
         self.properties = properties
+        self.dtype = dtype
 
     def __getitem__(self, item: int) -> Tensor:
-        return tensor(self.data[self.properties].iloc[item])
+        return tensor(self.data[self.properties].iloc[item], dtype=self.dtype)
 
     def __len__(self):
         return len(self.data)

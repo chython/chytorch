@@ -34,6 +34,8 @@ class LMDBProperties(LMDBMapper):
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
 
         :param db: lmdb dir path
+        :param cache: path to cache file for [re]storing index. caching disabled by default.
+        :param validate_cache: check cache-dataset size mismatch
         :param format_spec: python.Struct format for unpacking data
         :param columns: column indices in data for retrieving
         :param dtype: output tensor dtype
