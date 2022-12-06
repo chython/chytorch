@@ -91,7 +91,7 @@ class VotingClassifier(Module):
             m = k_fold_mask(k_fold, self._ensemble, x.size(0), not self.training, p.device).bool()  # B x E
             if self._output != 1:
                 # B x E > B x 1 x E
-                m = m.unsqueeze(1)
+                m.unsqueeze_(1)
             y = y.masked_fill(m, ignore_index)
 
         # B x E x C >> B * E x C
@@ -124,9 +124,9 @@ class VotingClassifier(Module):
         """
         p = softmax(self.forward(x), -1)
         if k_fold is not None:
-            m = k_fold_mask(k_fold, self._ensemble, x.size(0), True, p.device).unsqueeze_(-1).bool()  # B x E x 1
+            m = k_fold_mask(k_fold, self._ensemble, x.size(0), True, p.device).bool().unsqueeze_(-1)  # B x E x 1
             if self._output != 1:
-                m = m.unsqueeze(1)  # B x 1 x E x 1
+                m.unsqueeze_(1)  # B x 1 x E x 1
             p.masked_fill_(m, nan)
         return p.nanmean(-2)  # B x C or B x O x C
 

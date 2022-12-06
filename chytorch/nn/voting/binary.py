@@ -60,7 +60,7 @@ class BinaryVotingClassifier(VotingRegressor):
         if k_fold is not None:
             m = k_fold_mask(k_fold, self._ensemble, x.size(0), True, p.device).bool()  # B x E
             if self._output != 1:
-                m = m.unsqueeze(1)  # B x 1 x E
+                m.unsqueeze_(1)  # B x 1 x E
             p.masked_fill_(m, nan)
         return p.nanmean(-1)
 

@@ -91,8 +91,8 @@ class MappedReactionDataset(Dataset):
         r_atoms = [x if x in common else 0 for x in r_atoms]
         p_atoms = [x if x in common else 0 for x in p_atoms]
 
-        mask = (BoolTensor(p_atoms).unsqueeze(1) & BoolTensor(r_atoms).unsqueeze(0)).float()
-        attn = (IntTensor(p_atoms).unsqueeze(1) == IntTensor(r_atoms).unsqueeze(0)).float()
+        mask = (BoolTensor(p_atoms).unsqueeze_(1) & BoolTensor(r_atoms).unsqueeze_(0)).float()
+        attn = (IntTensor(p_atoms).unsqueeze_(1) == IntTensor(r_atoms).unsqueeze_(0)).float()
         return *rd, mask, attn * mask
 
     def __len__(self):

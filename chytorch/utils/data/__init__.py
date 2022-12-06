@@ -20,6 +20,7 @@ from torch import Size
 from typing import List
 from .lmdb import *
 from .molecule import *
+from .pandas import *
 from .reaction import *
 from .sampler import *
 from .tokenizer import *
@@ -57,7 +58,7 @@ __all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
            'ReactionEncoderDataset', 'ReactionDecoderDataset',  'PermutedReactionDataset', 'FakeReactionDataset',
            'SMILESDataset', 'MappedReactionDataset',
            'StructureSampler', 'DistributedStructureSampler',
-           'SizedList', 'LMDBMapper', 'LMDBProperties',
+           'SizedList', 'LMDBMapper', 'LMDBProperties', 'PandasStructureDataset', 'PandasPropertiesDataset',
            'collate_molecules', 'contrastive_collate', 'collate_encoded_reactions', 'collate_decoded_reactions',
            'collate_permuted_reactions', 'collate_faked_reactions', 'collate_mapped_reactions',
            'collate_sequences', 'chained_collate']
