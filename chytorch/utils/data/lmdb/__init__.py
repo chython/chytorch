@@ -18,6 +18,7 @@
 #
 from .mapper import *
 from .property import *
+from .structure import *
 
 
-__all__ = ['LMDBMapper', 'LMDBProperties']
+__all__ = ['LMDBMapper', 'LMDBProperties', 'LMDBStructure']
