@@ -19,18 +19,37 @@
 from chython import ReactionContainer
 from torch import Size, IntTensor, BoolTensor, zeros, float32
 from torch.utils.data import Dataset
+from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
-from typing import Sequence, Tuple, Union
-from .decoder import *
+from typing import Sequence, Union
+from .decoder import ReactionDecoderDataset, collate_decoded_reactions
+from .._types import DataTypeMixin, NamedTuple
 
 
-def collate_mapped_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int],
-                                             TensorType['batch*2', 'atoms', int],
-                                             TensorType['batch*2', 'atoms', 'atoms', int],
-                                             TensorType['batch', 'atoms', float],
-                                             TensorType['batch', 'atoms', float],
-                                             TensorType['batch', 'atoms', 'atoms', float],
-                                             TensorType['batch', 'atoms', 'atoms', float]]:
+class MappedReactionDataPoint(NamedTuple):
+    reactants_atoms: TensorType['atoms', int]
+    reactants_neighbors: TensorType['atoms', int]
+    reactants_distances:  TensorType['atoms', 'atoms', int]
+    products_atoms: TensorType['atoms', int]
+    products_neighbors: TensorType['atoms', int]
+    products_distances: TensorType['atoms', 'atoms', int]
+    reactants_mask: TensorType['atoms', float]
+    products_mask: TensorType['atoms', float]
+    mapping_mask: TensorType['atoms', 'atoms', float]
+    mapping: TensorType['atoms', 'atoms', float]
+
+
+class MappedReactionDataBatch(NamedTuple, DataTypeMixin):
+    atoms: TensorType['batch*2', 'atoms', int]
+    neighbors: TensorType['batch*2', 'atoms', int]
+    distances: TensorType['batch*2', 'atoms', 'atoms', int]
+    reactants_mask: TensorType['batch', 'atoms', float]
+    products_mask: TensorType['batch', 'atoms', float]
+    mapping_mask: TensorType['batch', 'atoms', 'atoms', float]
+    mapping: TensorType['batch', 'atoms', 'atoms', float]
+
+
+def collate_mapped_reactions(batch, *, collate_fn_map=None) -> MappedReactionDataBatch:
     """
     Prepares batches of mapped reactions.
 
@@ -44,7 +63,10 @@ def collate_mapped_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int]
         s1, s2 = m.shape
         mask[i, :s1, :s2] = m
         mapping[i, :s1, :s2] = t
-    return a, n, d, rm, pm, mask, mapping
+    return MappedReactionDataBatch(a, n, d, rm, pm, mask, mapping)
+
+
+default_collate_fn_map[MappedReactionDataPoint] = collate_mapped_reactions  # add auto_collation to the DataLoader
 
 
 class MappedReactionDataset(Dataset):
@@ -64,12 +86,7 @@ class MappedReactionDataset(Dataset):
         self.hide_molecule_cls = hide_molecule_cls
         self.unpack = unpack
 
-    def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', float], TensorType['atoms', float],
-                                              TensorType['atoms', 'atoms', float], TensorType['atoms', 'atoms', float]]:
+    def __getitem__(self, item: int) -> MappedReactionDataPoint:
         r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item]
         rd = ReactionDecoderDataset((r,), max_distance=self.max_distance, add_cls=self.add_cls,
                                     add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
@@ -93,7 +110,7 @@ class MappedReactionDataset(Dataset):
 
         mask = (BoolTensor(p_atoms).unsqueeze_(1) & BoolTensor(r_atoms).unsqueeze_(0)).float()
         attn = (IntTensor(p_atoms).unsqueeze_(1) == IntTensor(r_atoms).unsqueeze_(0)).float()
-        return *rd, mask, attn * mask
+        return MappedReactionDataPoint(*rd, mask, attn * mask)
 
     def __len__(self):
         return len(self.reactions)
@@ -106,4 +123,4 @@ class MappedReactionDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['MappedReactionDataset', 'collate_mapped_reactions']
+__all__ = ['MappedReactionDataset', 'MappedReactionDataPoint', 'MappedReactionDataBatch', 'collate_mapped_reactions']

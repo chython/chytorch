@@ -21,22 +21,44 @@ from random import random, choice
 from torch import LongTensor, Size
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from typing import Sequence, Tuple, Union
-from .decoder import *
+from torch.utils.data._utils.collate import default_collate_fn_map
+from typing import Sequence, Union
+from .decoder import ReactionDecoderDataset, collate_decoded_reactions
+from .._types import DataTypeMixin, NamedTuple
 
 
-def collate_faked_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int],
-                                            TensorType['batch*2', 'atoms', int],
-                                            TensorType['batch*2', 'atoms', 'atoms', int],
-                                            TensorType['batch', 'atoms', float],
-                                            TensorType['batch', 'atoms', float],
-                                            TensorType['batch', int]]:
+class FakedReactionDataPoint(NamedTuple):
+    reactants_atoms: TensorType['atoms', int]
+    reactants_neighbors: TensorType['atoms', int]
+    reactants_distances:  TensorType['atoms', 'atoms', int]
+    products_atoms: TensorType['atoms', int]
+    products_neighbors: TensorType['atoms', int]
+    products_distances: TensorType['atoms', 'atoms', int]
+    reactants_mask: TensorType['atoms', float]
+    products_mask: TensorType['atoms', float]
+    fake: int
+
+
+class FakedReactionDataBatch(NamedTuple, DataTypeMixin):
+    atoms: TensorType['batch*2', 'atoms', int]
+    neighbors: TensorType['batch*2', 'atoms', int]
+    distances: TensorType['batch*2', 'atoms', 'atoms', int]
+    reactants_mask: TensorType['batch', 'atoms', float]
+    products_mask: TensorType['batch', 'atoms', float]
+    fake: TensorType['batch', int]
+
+
+def collate_faked_reactions(batch, *, collate_fn_map=None) -> FakedReactionDataBatch:
     """
     Prepares batches of faked reactions.
 
     :return: atoms, neighbors, distances, masks, and fake label.
     """
-    return *collate_decoded_reactions([x[:-1] for x in batch]), LongTensor([x[-1] for x in batch])
+    return FakedReactionDataBatch(*collate_decoded_reactions([x[:-1] for x in batch]),
+                                  LongTensor([x[-1] for x in batch]))
+
+
+default_collate_fn_map[FakedReactionDataPoint] = collate_faked_reactions  # add auto_collation to the DataLoader
 
 
 class FakeReactionDataset(Dataset):
@@ -63,12 +85,7 @@ class FakeReactionDataset(Dataset):
         self.hide_molecule_cls = hide_molecule_cls
         self.unpack = unpack
 
-    def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', float], TensorType['atoms', float],
-                                              int]:
+    def __getitem__(self, item: int) -> FakedReactionDataPoint:
         r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item].copy()
 
         if len(r.reactants) > 1 and random() < self.rate:
@@ -82,10 +99,11 @@ class FakeReactionDataset(Dataset):
             label = 0
         else:
             label = 1
-        return *ReactionDecoderDataset((r,), max_distance=self.max_distance, add_cls=self.add_cls,
-                                       add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
-                                       disable_components_interaction=self.disable_components_interaction,
-                                       hide_molecule_cls=self.hide_molecule_cls)[0], label
+        return FakedReactionDataPoint(
+            *ReactionDecoderDataset((r,), max_distance=self.max_distance, add_cls=self.add_cls,
+                                    add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
+                                    disable_components_interaction=self.disable_components_interaction,
+                                    hide_molecule_cls=self.hide_molecule_cls)[0], label)
 
     def __len__(self):
         return len(self.reactions)
@@ -98,4 +116,4 @@ class FakeReactionDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['FakeReactionDataset', 'collate_faked_reactions']
+__all__ = ['FakeReactionDataset', 'FakedReactionDataPoint', 'FakedReactionDataBatch', 'collate_faked_reactions']

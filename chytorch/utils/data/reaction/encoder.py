@@ -21,15 +21,28 @@ from itertools import chain, repeat
 from torch import IntTensor, cat, zeros, int32, Size
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
-from typing import Sequence, Tuple, Union
+from typing import Sequence, Union
 from ..molecule import MoleculeDataset
+from .._types import DataTypeMixin, NamedTuple
 
 
-def collate_encoded_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
-                                              TensorType['batch', 'atoms', int],
-                                              TensorType['batch', 'atoms', 'atoms', int],
-                                              TensorType['batch', 'atoms', int]]:
+class ReactionEncoderDataPoint(NamedTuple):
+    atoms: TensorType['atoms', int]
+    neighbors: TensorType['atoms', int]
+    distances:  TensorType['atoms', 'atoms', int]
+    roles: TensorType['atoms', int]
+
+
+class ReactionEncoderDataBatch(NamedTuple, DataTypeMixin):
+    atoms: TensorType['batch', 'atoms', int]
+    neighbors: TensorType['batch', 'atoms', int]
+    distances:  TensorType['batch', 'atoms', 'atoms', int]
+    roles: TensorType['batch', 'atoms', int]
+
+
+def collate_encoded_reactions(batch, *, collate_fn_map=None) -> ReactionEncoderDataBatch:
     """
     Prepares batches of reactions.
 
@@ -49,7 +62,10 @@ def collate_encoded_reactions(batch) -> Tuple[TensorType['batch', 'atoms', int],
     for n, d in enumerate(distances):
         s = d.size(0)
         tmp[n, :s, :s] = d
-    return pa, pad_sequence(neighbors, True), tmp, pad_sequence(roles, True)
+    return ReactionEncoderDataBatch(pa, pad_sequence(neighbors, True), tmp, pad_sequence(roles, True))
+
+
+default_collate_fn_map[ReactionEncoderDataPoint] = collate_encoded_reactions  # add auto_collation to the DataLoader
 
 
 class ReactionEncoderDataset(Dataset):
@@ -84,8 +100,7 @@ class ReactionEncoderDataset(Dataset):
         self.hide_molecule_cls = hide_molecule_cls
         self.unpack = unpack
 
-    def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int], TensorType['atoms', int]]:
+    def __getitem__(self, item: int) -> ReactionEncoderDataPoint:
         rxn = self.reactions[item]
         if self.unpack:
             rxn = ReactionContainer.unpack(rxn)
@@ -119,7 +134,7 @@ class ReactionEncoderDataset(Dataset):
             j = i + d.size(0)
             tmp[i:j, i:j] = d
             i = j
-        return cat(atoms), cat(neighbors), tmp, IntTensor(roles)
+        return ReactionEncoderDataPoint(cat(atoms), cat(neighbors), tmp, IntTensor(roles))
 
     def __len__(self):
         return len(self.reactions)
@@ -132,4 +147,5 @@ class ReactionEncoderDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['ReactionEncoderDataset', 'collate_encoded_reactions']
+__all__ = ['ReactionEncoderDataset', 'ReactionEncoderDataPoint', 'ReactionEncoderDataBatch',
+           'collate_encoded_reactions']

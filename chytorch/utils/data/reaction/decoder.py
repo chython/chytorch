@@ -21,16 +21,33 @@ from math import inf
 from torch import IntTensor, cat, zeros, int32, Size, float32
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
-from typing import Sequence, Tuple, Union
+from typing import Sequence, Union
 from ..molecule import MoleculeDataset
+from .._types import DataTypeMixin, NamedTuple
 
 
-def collate_decoded_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int],
-                                              TensorType['batch*2', 'atoms', int],
-                                              TensorType['batch*2', 'atoms', 'atoms', int],
-                                              TensorType['batch', 'atoms', float],
-                                              TensorType['batch', 'atoms', float]]:
+class ReactionDecoderDataPoint(NamedTuple):
+    reactants_atoms: TensorType['atoms', int]
+    reactants_neighbors: TensorType['atoms', int]
+    reactants_distances:  TensorType['atoms', 'atoms', int]
+    products_atoms: TensorType['atoms', int]
+    products_neighbors: TensorType['atoms', int]
+    products_distances: TensorType['atoms', 'atoms', int]
+    reactants_mask: TensorType['atoms', float]
+    products_mask: TensorType['atoms', float]
+
+
+class ReactionDecoderDataBatch(NamedTuple, DataTypeMixin):
+    atoms: TensorType['batch*2', 'atoms', int]
+    neighbors: TensorType['batch*2', 'atoms', int]
+    distances: TensorType['batch*2', 'atoms', 'atoms', int]
+    reactants_mask: TensorType['batch', 'atoms', float]
+    products_mask: TensorType['batch', 'atoms', float]
+
+
+def collate_decoded_reactions(batch, *, collate_fn_map=None) -> ReactionDecoderDataBatch:
     """
     Prepares batches of reactions.
 
@@ -56,7 +73,11 @@ def collate_decoded_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int
     for n, d in enumerate(distances):
         s = d.size(0)
         tmp[n, :s, :s] = d
-    return pa, pad_sequence(neighbors, True), tmp, pad_sequence(r_mask, True, -inf), pad_sequence(p_mask, True, -inf)
+    return ReactionDecoderDataBatch(pa, pad_sequence(neighbors, True), tmp,
+                                    pad_sequence(r_mask, True, -inf), pad_sequence(p_mask, True, -inf))
+
+
+default_collate_fn_map[ReactionDecoderDataPoint] = collate_decoded_reactions  # add auto_collation to the DataLoader
 
 
 class ReactionDecoderDataset(Dataset):
@@ -89,11 +110,7 @@ class ReactionDecoderDataset(Dataset):
         self.hide_molecule_cls = hide_molecule_cls
         self.unpack = unpack
 
-    def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', float], TensorType['atoms', float]]:
+    def __getitem__(self, item: int) -> ReactionDecoderDataPoint:
         rxn = self.reactions[item]
         if self.unpack:
             rxn = ReactionContainer.unpack(rxn)
@@ -168,7 +185,8 @@ class ReactionDecoderDataset(Dataset):
             tmp[i:j, i:j] = d
             i = j
         p_distances = tmp
-        return r_atoms, cat(r_neighbors), r_distances, p_atoms, cat(p_neighbors), p_distances, r_mask, p_mask
+        return ReactionDecoderDataPoint(r_atoms, cat(r_neighbors), r_distances, p_atoms, cat(p_neighbors),
+                                        p_distances, r_mask, p_mask)
 
     def __len__(self):
         return len(self.reactions)
@@ -181,4 +199,5 @@ class ReactionDecoderDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['ReactionDecoderDataset', 'collate_decoded_reactions']
+__all__ = ['ReactionDecoderDataset', 'ReactionDecoderDataPoint', 'ReactionDecoderDataBatch',
+           'collate_decoded_reactions']

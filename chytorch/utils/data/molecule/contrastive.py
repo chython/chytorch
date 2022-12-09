@@ -22,21 +22,34 @@ from math import sqrt
 from random import choice, random
 from torch import Size
 from torch.utils.data import Dataset
+from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
-from typing import Tuple, Union, List
-from .encoder import *
+from typing import Union, List
+from .encoder import MoleculeDataset, MoleculeDataPoint, collate_molecules
+from .._types import DataTypeMixin, NamedTuple
 
 
-def contrastive_collate(batch) -> Tuple[TensorType['2*batch', 'atoms', int], TensorType['2*batch', 'atoms', int],
-                                        TensorType['2*batch', 'atoms', 'atoms', int]]:
+class ContrastiveDataPoint(NamedTuple):
+    first: MoleculeDataPoint
+    second: MoleculeDataPoint
+
+
+class ContrastiveDataBatch(NamedTuple, DataTypeMixin):
+    atoms: TensorType['2*batch', 'atoms', int]
+    neighbors: TensorType['2*batch', 'atoms', int]
+    distances:  TensorType['2*batch', 'atoms', 'atoms', int]
+
+
+def contrastive_collate(batch, *, collate_fn_map=None) -> ContrastiveDataBatch:
     """
     Prepares batches of contrastive molecules. First B elements are first elements of pairs, Second > second.
-
-    :return: see collate_molecules
     """
     flat = [x for x, _ in batch]
     flat.extend(x for _, x in batch)
-    return collate_molecules(flat)
+    return ContrastiveDataBatch(*collate_molecules(flat))
+
+
+default_collate_fn_map[ContrastiveDataPoint] = contrastive_collate  # add auto_collation to the DataLoader
 
 
 class ContrastiveDataset(Dataset):
@@ -66,17 +79,14 @@ class ContrastiveDataset(Dataset):
             else:
                 total.extend((i, x) for x in range(n * (n - 1) // 2))
 
-    def __getitem__(self, item) -> Tuple[Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                               TensorType['atoms', 'atoms', int]],
-                                         Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                               TensorType['atoms', 'atoms', int]]]:
+    def __getitem__(self, item) -> ContrastiveDataPoint:
         i, p = self.total[item]
         mols = self.molecules[i]
         if (n := len(mols)) == 1:  # no pairs
             m = MoleculeDataset(mols, max_distance=self.max_distance,
                                 add_cls=self.add_cls, symmetric_cls=self.symmetric_cls, unpack=self.unpack,
                                 disable_components_interaction=self.disable_components_interaction)[0]
-            return m, m
+            return ContrastiveDataPoint(m, m)
         elif n == 2:
             m1, m2 = mols
         elif p < n - 1:
@@ -94,7 +104,7 @@ class ContrastiveDataset(Dataset):
         ms = MoleculeDataset([m1, m2], max_distance=self.max_distance, add_cls=self.add_cls,
                              symmetric_cls=self.symmetric_cls, unpack=self.unpack,
                              disable_components_interaction=self.disable_components_interaction)
-        return ms[0], ms[1]
+        return ContrastiveDataPoint(ms[0], ms[1])
 
     def __len__(self):
         """
@@ -133,10 +143,7 @@ class ContrastiveMethylDataset(Dataset):
         self.disable_components_interaction = disable_components_interaction
         self.unpack = unpack
 
-    def __getitem__(self, item) -> Tuple[Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                               TensorType['atoms', 'atoms', int]],
-                                         Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                               TensorType['atoms', 'atoms', int]]]:
+    def __getitem__(self, item) -> ContrastiveDataPoint:
         m1 = MoleculeContainer.unpack(self.molecules[item]) if self.unpack else self.molecules[item]
         m2 = m1.copy()
         hgs = m2._hydrogens  # noqa
@@ -158,7 +165,7 @@ class ContrastiveMethylDataset(Dataset):
         ms = MoleculeDataset([m1, m2], max_distance=self.max_distance, add_cls=self.add_cls,
                              symmetric_cls=self.symmetric_cls,
                              disable_components_interaction=self.disable_components_interaction)
-        return ms[0], ms[1]
+        return ContrastiveDataPoint(ms[0], ms[1])
 
     def __len__(self):
         return len(self.molecules)
@@ -171,4 +178,5 @@ class ContrastiveMethylDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['ContrastiveDataset', 'ContrastiveMethylDataset', 'contrastive_collate']
+__all__ = ['ContrastiveDataset', 'ContrastiveMethylDataset', 'ContrastiveDataPoint', 'ContrastiveDataBatch',
+           'contrastive_collate']

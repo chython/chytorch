@@ -23,6 +23,7 @@ from torchtyping import TensorType
 from typing import Tuple, Union
 from ..molecule import MoleculeEncoder
 from ..transformer import EncoderLayer
+from ...utils.data import ReactionEncoderDataBatch
 
 
 class ReactionEncoder(Module):
@@ -74,10 +75,7 @@ class ReactionEncoder(Module):
         """
         return self.molecule_encoder.max_distance
 
-    def forward(self, batch: Tuple[TensorType['batch', 'atoms', int],
-                                   TensorType['batch', 'atoms', int],
-                                   TensorType['batch', 'atoms', 'atoms', int],
-                                   TensorType['batch', 'atoms', int]],
+    def forward(self, batch: ReactionEncoderDataBatch,
                 /, *, need_embedding: bool = True, need_weights: bool = False, averaged_weights: bool = False) -> \
             Union[TensorType['batch', 'atoms', 'embedding'],
                   TensorType['batch', 'atoms', 'atoms'],

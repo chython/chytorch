@@ -22,12 +22,25 @@ from scipy.sparse.csgraph import shortest_path
 from torch import IntTensor, Size, int32, ones as t_ones, zeros
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
-from typing import Sequence, Tuple, Union
+from typing import Sequence, Union
+from .._types import DataTypeMixin, NamedTuple
 
 
-def collate_molecules(batch) -> Tuple[TensorType['batch', 'atoms', int], TensorType['batch', 'atoms', int],
-                                      TensorType['batch', 'atoms', 'atoms', int]]:
+class MoleculeDataPoint(NamedTuple):
+    atoms: TensorType['atoms', int]
+    neighbors: TensorType['atoms', int]
+    distances:  TensorType['atoms', 'atoms', int]
+
+
+class MoleculeDataBatch(NamedTuple, DataTypeMixin):
+    atoms: TensorType['batch', 'atoms', int]
+    neighbors: TensorType['batch', 'atoms', int]
+    distances:  TensorType['batch', 'atoms', 'atoms', int]
+
+
+def collate_molecules(batch, *, collate_fn_map=None) -> MoleculeDataBatch:
     """
     Prepares batches of molecules.
 
@@ -49,7 +62,10 @@ def collate_molecules(batch) -> Tuple[TensorType['batch', 'atoms', int], TensorT
     for i, d in enumerate(distances):
         s = d.size(0)
         tmp[i, :s, :s] = d
-    return pa, pad_sequence(neighbors, True), tmp
+    return MoleculeDataBatch(pa, pad_sequence(neighbors, True), tmp)
+
+
+default_collate_fn_map[MoleculeDataPoint] = collate_molecules  # add auto_collation to the DataLoader
 
 
 class MoleculeDataset(Dataset):
@@ -84,8 +100,7 @@ class MoleculeDataset(Dataset):
         self.disable_components_interaction = disable_components_interaction
         self.unpack = unpack
 
-    def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int]]:
+    def __getitem__(self, item: int) -> MoleculeDataPoint:
         mol = self.molecules[item]
         if self.unpack:
             mol = MoleculeContainer.unpack(mol)
@@ -111,7 +126,7 @@ class MoleculeDataset(Dataset):
                 tmp[1:, 0] = 0  # disable CLS to atom attention by padding trick
             tmp[1:, 1:] = sp
             sp = tmp
-        return atoms, neighbors, IntTensor(sp)
+        return MoleculeDataPoint(atoms, neighbors, IntTensor(sp))
 
     def __len__(self):
         return len(self.molecules)
@@ -124,4 +139,4 @@ class MoleculeDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['MoleculeDataset', 'collate_molecules']
+__all__ = ['MoleculeDataset', 'MoleculeDataPoint', 'MoleculeDataBatch', 'collate_molecules']

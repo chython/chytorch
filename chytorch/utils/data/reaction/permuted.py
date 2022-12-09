@@ -21,9 +21,11 @@ from chython.periodictable import Element
 from random import random, choice
 from torch import LongTensor, cat, Size
 from torch.utils.data import Dataset
+from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
-from typing import Sequence, Tuple, Union
-from .decoder import *
+from typing import Sequence, Union
+from .decoder import ReactionDecoderDataset, collate_decoded_reactions
+from .._types import DataTypeMixin, NamedTuple
 
 
 # isometric atoms
@@ -76,20 +78,39 @@ isosteres = {
 isosteres = {(*bs, rp): [x for x in rps if x[0] != rp] for bs, rps in isosteres.items() for rp, _ in rps}
 
 
-def collate_permuted_reactions(batch) -> Tuple[TensorType['batch*2', 'atoms', int],
-                                               TensorType['batch*2', 'atoms', int],
-                                               TensorType['batch*2', 'atoms', 'atoms', int],
-                                               TensorType['batch', 'atoms', float],
-                                               TensorType['batch', 'atoms', float],
-                                               TensorType['batch*atoms', int]]:
+class PermutedReactionDataPoint(NamedTuple):
+    reactants_atoms: TensorType['atoms', int]
+    reactants_neighbors: TensorType['atoms', int]
+    reactants_distances:  TensorType['atoms', 'atoms', int]
+    products_atoms: TensorType['atoms', int]
+    products_neighbors: TensorType['atoms', int]
+    products_distances: TensorType['atoms', 'atoms', int]
+    reactants_mask: TensorType['atoms', float]
+    products_mask: TensorType['atoms', float]
+    replacement: TensorType['atoms', int]
+
+
+class PermutedReactionDataBatch(NamedTuple, DataTypeMixin):
+    atoms: TensorType['batch*2', 'atoms', int]
+    neighbors: TensorType['batch*2', 'atoms', int]
+    distances: TensorType['batch*2', 'atoms', 'atoms', int]
+    reactants_mask: TensorType['batch', 'atoms', float]
+    products_mask: TensorType['batch', 'atoms', float]
+    replacement: TensorType['batch*atoms', int]
+
+
+def collate_permuted_reactions(batch, *, collate_fn_map=None) -> PermutedReactionDataBatch:
     """
     Prepares batches of permuted reactions.
 
     :return: atoms, neighbors, distances, masks, and atoms replacement legend.
 
-    Note: cls and padding not included into legend.
+    Note: padding not included into legend.
     """
-    return *collate_decoded_reactions([x[:-1] for x in batch]), cat([x[-1] for x in batch])
+    return PermutedReactionDataBatch(*collate_decoded_reactions([x[:-1] for x in batch]), cat([x[-1] for x in batch]))
+
+
+default_collate_fn_map[PermutedReactionDataPoint] = collate_permuted_reactions  # add auto_collation to the DataLoader
 
 
 class PermutedReactionDataset(Dataset):
@@ -114,15 +135,10 @@ class PermutedReactionDataset(Dataset):
         self.hide_molecule_cls = hide_molecule_cls
         self.unpack = unpack
 
-    def __getitem__(self, item: int) -> Tuple[TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', int], TensorType['atoms', int],
-                                              TensorType['atoms', 'atoms', int],
-                                              TensorType['atoms', float], TensorType['atoms', float],
-                                              TensorType['atoms', int]]:
+    def __getitem__(self, item: int) -> PermutedReactionDataPoint:
         r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item].copy()
 
-        labels = [1] if self.add_cls else []
+        labels = [2] if self.add_cls else []
         for m in r.products:
             bonds = m._bonds  # noqa
             hgs = m._hydrogens  # noqa
@@ -137,10 +153,11 @@ class PermutedReactionDataset(Dataset):
                     s, h = choice(p)
                     a.__class__ = Element.from_symbol(s)
                     hgs[n] = h
-        return *ReactionDecoderDataset((r,), max_distance=self.max_distance, add_cls=self.add_cls,
-                                       add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
-                                       disable_components_interaction=self.disable_components_interaction,
-                                       hide_molecule_cls=self.hide_molecule_cls)[0], LongTensor(labels)
+        return PermutedReactionDataPoint(
+            *ReactionDecoderDataset((r,), max_distance=self.max_distance, add_cls=self.add_cls,
+                                    add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
+                                    disable_components_interaction=self.disable_components_interaction,
+                                    hide_molecule_cls=self.hide_molecule_cls)[0], LongTensor(labels))
 
     def __len__(self):
         return len(self.reactions)
@@ -153,4 +170,5 @@ class PermutedReactionDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['PermutedReactionDataset', 'collate_permuted_reactions']
+__all__ = ['PermutedReactionDataset', 'PermutedReactionDataPoint', 'PermutedReactionDataBatch',
+           'collate_permuted_reactions']

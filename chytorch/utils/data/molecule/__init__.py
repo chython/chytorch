@@ -21,4 +21,5 @@ from .encoder import *
 
 
 __all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
+           'MoleculeDataPoint', 'ContrastiveDataPoint', 'MoleculeDataBatch', 'ContrastiveDataBatch',
            'collate_molecules', 'contrastive_collate']

@@ -22,6 +22,7 @@ from torch.nn import Embedding, GELU, Module, ModuleList
 from torchtyping import TensorType
 from typing import Tuple, Union
 from .transformer import EncoderLayer
+from ..utils.data import MoleculeDataBatch
 
 
 class MoleculeEncoder(Module):
@@ -60,9 +61,7 @@ class MoleculeEncoder(Module):
         """
         return self.spatial_encoder.num_embeddings - 3
 
-    def forward(self, batch: Tuple[TensorType['batch', 'atoms', int],
-                                   TensorType['batch', 'atoms', int],
-                                   TensorType['batch', 'atoms', 'atoms', int]],
+    def forward(self, batch: MoleculeDataBatch,
                 /, *, need_embedding: bool = True, need_weights: bool = False) -> \
             Union[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms'],
                   Tuple[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms']]]:

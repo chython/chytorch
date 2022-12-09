@@ -16,14 +16,13 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from torch import Size
-from typing import List
 from .lmdb import *
 from .molecule import *
 from .pandas import *
 from .reaction import *
 from .sampler import *
 from .tokenizer import *
+from ._types import *
 
 
 def chained_collate(*collate_fns):
@@ -37,21 +36,6 @@ def chained_collate(*collate_fns):
                 s.append(y)
         return [f(x) for x, f in zip(sub_batches, collate_fns)]
     return w
-
-
-class SizedList(List):
-    """
-    List with tensor-like size method.
-    """
-    def __init__(self, data):
-        super().__init__(data)
-
-    def size(self, dim=None):
-        if dim == 0:
-            return len(self)
-        elif dim is None:
-            return Size((len(self),))
-        raise IndexError
 
 
 __all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',

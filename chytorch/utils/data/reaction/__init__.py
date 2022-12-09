@@ -30,6 +30,10 @@ collate_reactions = collate_encoded_reactions
 
 __all__ = ['ReactionEncoderDataset', 'ReactionDecoderDataset', 'FakeReactionDataset', 'PermutedReactionDataset',
            'MappedReactionDataset',
+           'ReactionEncoderDataPoint', 'ReactionDecoderDataPoint', 'FakedReactionDataPoint',
+           'PermutedReactionDataPoint', 'MappedReactionDataPoint',
+           'ReactionEncoderDataBatch', 'ReactionDecoderDataBatch', 'FakedReactionDataBatch',
+           'PermutedReactionDataBatch', 'MappedReactionDataBatch',
            'collate_encoded_reactions', 'collate_decoded_reactions', 'collate_faked_reactions',
            'collate_permuted_reactions', 'collate_mapped_reactions',
            # reverse compatibility
