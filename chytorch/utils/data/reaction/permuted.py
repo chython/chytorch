@@ -81,7 +81,7 @@ isosteres = {(*bs, rp): [x for x in rps if x[0] != rp] for bs, rps in isosteres.
 class PermutedReactionDataPoint(NamedTuple):
     reactants_atoms: TensorType['atoms', int]
     reactants_neighbors: TensorType['atoms', int]
-    reactants_distances:  TensorType['atoms', 'atoms', int]
+    reactants_distances: TensorType['atoms', 'atoms', int]
     products_atoms: TensorType['atoms', int]
     products_neighbors: TensorType['atoms', int]
     products_distances: TensorType['atoms', 'atoms', int]

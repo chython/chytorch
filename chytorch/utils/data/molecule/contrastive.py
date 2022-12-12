@@ -37,7 +37,7 @@ class ContrastiveDataPoint(NamedTuple):
 class ContrastiveDataBatch(NamedTuple, DataTypeMixin):
     atoms: TensorType['2*batch', 'atoms', int]
     neighbors: TensorType['2*batch', 'atoms', int]
-    distances:  TensorType['2*batch', 'atoms', 'atoms', int]
+    distances: TensorType['2*batch', 'atoms', 'atoms', int]
 
 
 def contrastive_collate(batch, *, collate_fn_map=None) -> ContrastiveDataBatch:

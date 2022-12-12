@@ -31,14 +31,14 @@ from .._types import DataTypeMixin, NamedTuple
 class ReactionEncoderDataPoint(NamedTuple):
     atoms: TensorType['atoms', int]
     neighbors: TensorType['atoms', int]
-    distances:  TensorType['atoms', 'atoms', int]
+    distances: TensorType['atoms', 'atoms', int]
     roles: TensorType['atoms', int]
 
 
 class ReactionEncoderDataBatch(NamedTuple, DataTypeMixin):
     atoms: TensorType['batch', 'atoms', int]
     neighbors: TensorType['batch', 'atoms', int]
-    distances:  TensorType['batch', 'atoms', 'atoms', int]
+    distances: TensorType['batch', 'atoms', 'atoms', int]
     roles: TensorType['batch', 'atoms', int]
 
 

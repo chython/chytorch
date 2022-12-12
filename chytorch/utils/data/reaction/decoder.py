@@ -31,7 +31,7 @@ from .._types import DataTypeMixin, NamedTuple
 class ReactionDecoderDataPoint(NamedTuple):
     reactants_atoms: TensorType['atoms', int]
     reactants_neighbors: TensorType['atoms', int]
-    reactants_distances:  TensorType['atoms', 'atoms', int]
+    reactants_distances: TensorType['atoms', 'atoms', int]
     products_atoms: TensorType['atoms', int]
     products_neighbors: TensorType['atoms', int]
     products_distances: TensorType['atoms', 'atoms', int]
