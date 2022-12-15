@@ -27,14 +27,16 @@ API is combination of `torch.nn.TransformerEncoderLayer` with `torch.nn.Transfor
 **Batch preparation:**
 
 `chytorch.utils.data.MoleculeDataset` and `chytorch.utils.data.ReactionDataset` - Map-like on-the-fly dataset generators for molecules and reactions.
-Supported `chython.MoleculeContainer` and `chython.ReactionContainer` objects, and bytes-packed forms.
+Supported `chython.MoleculeContainer` and `chython.ReactionContainer` objects, and bytes-packed structures.
 
 `chytorch.utils.data.collate_molecules` and `chytorch.utils.data.collate_reactions` - collate functions for `torch.utils.data.DataLoader`.
+
+Note: torch DataLoader automatically do proper collation.
 
 Example:
 
     from chython import SMILESRead
-    from chytorch.utils.data import collate_molecules, MoleculeDataset
+    from chytorch.utils.data import MoleculeDataset
     from torch.utils.data import DataLoader
 
     data = []
@@ -43,15 +45,15 @@ Example:
         data.append(r)
 
     ds = MoleculeDataset(data)
-    dl = DataLoader(ds, collate_fn=collate_molecules, batch_size=10)
+    dl = DataLoader(ds, batch_size=10)
 
 **Forward call:**
 
 Molecules coded as tensors of:
 * atoms numbers shifted by 2 (e.g. hydrogen = 3).
-  0 - reserved for padding, 1 - reserved for CLS token, 2 - for MLM task.
+  0 - reserved for padding, 1 - reserved for CLS token, 2 - extra reservation.
 * neighbors count, including implicit hydrogens shifted by 2 (e.g. CO = CH3OH = [6, 4]).
-  0 - reserved for padding, 1 - for MLM task, 2 - no-neighbors, 3 - one neighbor.
+  0 - reserved for padding, 1 - extra reservation, 2 - no-neighbors, 3 - one neighbor.
 * topological distances' matrix shifted by 2 with upper limit.
   0 - reserved for padding, 1 - reserved for not-connected graph components coding, 2 - self-loop, 3 - connected atoms.
 
@@ -89,3 +91,8 @@ Reactions include additional tensor with reaction role codes for each token.
 **Caching:**
 
 `chytorch.utils.cache.SequencedFileCache`, `chytorch.utils.cache.SequencedDBCache`, `chytorch.utils.cache.SequencedDtypeCompressedCache`, `chytorch.utils.cache.CycleDataLoader` - helpers for caching slow dataset generators output.
+
+**Data Wrappers:**
+
+`chytorch.utils.data.LMDBProperties`, `chytorch.utils.data.LMDBStructure`,
+`chytorch.utils.data.PandasStructureDataset`, `chytorch.utils.data.PandasPropertiesDataset` - DataSet like helpers for LMDB and Pandas.DataFrame stored data processing.
