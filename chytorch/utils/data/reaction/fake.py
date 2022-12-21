@@ -21,10 +21,9 @@ from random import random, choice
 from torch import LongTensor, Size
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from torch.utils.data._utils.collate import default_collate_fn_map
 from typing import Sequence, Union
 from .decoder import ReactionDecoderDataset, collate_decoded_reactions
-from .._types import DataTypeMixin, NamedTuple
+from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
 class FakedReactionDataPoint(NamedTuple):

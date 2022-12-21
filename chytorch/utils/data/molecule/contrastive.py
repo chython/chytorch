@@ -22,11 +22,10 @@ from math import sqrt
 from random import choice, random
 from torch import Size
 from torch.utils.data import Dataset
-from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
 from typing import Union, List
 from .encoder import MoleculeDataset, MoleculeDataPoint, collate_molecules
-from .._types import DataTypeMixin, NamedTuple
+from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
 class ContrastiveDataPoint(NamedTuple):

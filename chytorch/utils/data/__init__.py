@@ -22,7 +22,7 @@ from .pandas import *
 from .reaction import *
 from .sampler import *
 from .tokenizer import *
-from ._types import *
+from ._utils import *
 
 
 def chained_collate(*collate_fns):

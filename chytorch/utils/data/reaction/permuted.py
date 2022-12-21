@@ -21,11 +21,10 @@ from chython.periodictable import Element
 from random import random, choice
 from torch import LongTensor, cat, Size
 from torch.utils.data import Dataset
-from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
 from typing import Sequence, Union
 from .decoder import ReactionDecoderDataset, collate_decoded_reactions
-from .._types import DataTypeMixin, NamedTuple
+from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
 # isometric atoms

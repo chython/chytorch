@@ -19,6 +19,11 @@
 from torch import Size
 from typing import List, NamedTuple, NamedTupleMeta
 
+try:
+    from torch.utils.data._utils.collate import default_collate_fn_map
+except ImportError:  # ad-hoc for pytorch<1.13
+    default_collate_fn_map = {}
+
 
 class SizedList(List):
     """

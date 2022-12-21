@@ -21,11 +21,10 @@ from itertools import chain, repeat
 from torch import IntTensor, cat, zeros, int32, Size
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
-from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
 from typing import Sequence, Union
 from ..molecule import MoleculeDataset
-from .._types import DataTypeMixin, NamedTuple
+from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
 class ReactionEncoderDataPoint(NamedTuple):
