@@ -16,10 +16,10 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from torch import cat, Tensor
+from torch import cat, stack, Tensor
 from torch.nn import Module, ModuleList
 from torchtyping import TensorType
-from typing import Type, List, Any, Dict, Tuple
+from typing import Type, List, Any, Dict, Tuple, Union
 
 
 class Exponent(Module):
@@ -62,11 +62,32 @@ class Linear(Module):
 
 class Converters(Module):
     def __init__(self, converters: List[Tuple[Type[Module], Dict[str, Any]]]):
+        """
+        Convert each element of tensor to a vector of converted values.
+        """
         super().__init__()
         self.converters = ModuleList(m(**a) for m, a in converters)
 
-    def forward(self, x: TensorType['batch', 'properties']) -> TensorType['batch', 'n_converters*properties']:
-        return cat([lr(x) for lr in self.converters], dim=-1)
+    def forward(self, x: Union[TensorType['batch'], TensorType['batch', 1]]) -> TensorType['batch', 'n_converters']:
+        if x.dim() == 1:
+            x = x.unsqueeze(-1)
+        assert x.dim() == 2 and x.size(1) == 1, 'vector or column-vector expected'
+        return cat([c(x) for c in self.converters], dim=-1)
 
 
-__all__ = ['Converters', 'Exponent', 'Linear']
+class MultiColumnConverters(Module):
+    def __init__(self, converters: List[List[Tuple[Type[Module], Dict[str, Any]]]]):
+        """
+        Convert elements columnwise of matrix to vectors of converted values.
+        """
+        assert all(len(converters[0]) == len(x) for x in converters), 'only equal converters count supported'
+        super().__init__()
+        self.converters = ModuleList(Converters(x) for x in converters)
+
+    def forward(self, x: TensorType['batch', 'value']) -> TensorType['batch', 'value', 'n_converters']:
+        assert x.dim() == 2, 'matrix expected'
+        assert x.size(1) == len(self.converters), 'column count mismatch'
+        return stack([c(x) for x, c in zip(x.split(1, dim=1), self.converters)], dim=1)
+
+
+__all__ = ['Converters', 'MultiColumnConverters', 'Exponent', 'Linear']

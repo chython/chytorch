@@ -26,4 +26,5 @@ from .voting import *
 
 
 __all__ = ['MoleculeEncoder', 'ReactionEncoder', 'ReactionDecoder', 'SequenceDecoder',
-           'PulingHardtanh', 'VotingClassifier', 'VotingRegressor', 'BinaryVotingClassifier', 'Slicer', 'Converters']
+           'PulingHardtanh', 'VotingClassifier', 'VotingRegressor', 'BinaryVotingClassifier', 'Slicer',
+           'Converters', 'MultiColumnConverters']
