@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2021, 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -23,7 +23,7 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name='chytorch',
-    version='1.28',
+    version='1.29',
     packages=find_namespace_packages(include=('chytorch.*',)),
     url='https://github.com/chython/chytorch',
     license='LGPLv3',

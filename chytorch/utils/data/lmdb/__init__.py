@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -17,8 +17,9 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from .mapper import *
+from .pickle import *
 from .property import *
 from .structure import *
 
 
-__all__ = ['LMDBMapper', 'LMDBProperties', 'LMDBStructure']
+__all__ = ['LMDBMapper', 'LMDBProperties', 'LMDBStructure', 'LMDBPickle']

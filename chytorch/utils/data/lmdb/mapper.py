@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -47,7 +47,7 @@ class LMDBMapper(Dataset):
         # load existing cache
         with cache.open('rb') as f:
             mapping = load(f)
-        assert isinstance(mapping, dict), 'Mapper cache invalid'
+        assert isinstance(mapping, list), 'Mapper cache invalid'
         if validate_cache:
             from lmdb import Environment
 
@@ -69,7 +69,7 @@ class LMDBMapper(Dataset):
         except AttributeError:
             with tr.cursor() as c:
                 # build mapping
-                self._mapping = mapping = dict(enumerate(c.iternext(keys=True, values=False)))
+                self._mapping = mapping = list(c.iternext(keys=True, values=False))
             if (cache := self.cache) is not None:  # save to cache
                 if isinstance(cache, str):
                     cache = Path(cache)

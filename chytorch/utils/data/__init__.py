@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2021, 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -42,7 +42,7 @@ __all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
            'ReactionEncoderDataset', 'ReactionDecoderDataset',  'PermutedReactionDataset', 'FakeReactionDataset',
            'SMILESDataset', 'MappedReactionDataset',
            'StructureSampler', 'DistributedStructureSampler',
-           'SizedList', 'LMDBMapper', 'LMDBProperties', 'LMDBStructure',
+           'SizedList', 'LMDBMapper', 'LMDBProperties', 'LMDBStructure', 'LMDBPickle',
            'PandasStructureDataset', 'PandasPropertiesDataset',
            'collate_molecules', 'contrastive_collate', 'collate_encoded_reactions', 'collate_decoded_reactions',
            'collate_permuted_reactions', 'collate_faked_reactions', 'collate_mapped_reactions',
