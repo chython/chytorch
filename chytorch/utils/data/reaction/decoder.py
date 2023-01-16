@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -89,7 +89,7 @@ class ReactionDecoderDataset(Dataset):
              distances - merged molecular distances matrices filled by zero for isolating attention.
             roles: 2 reactants, 3 products, 0 padding, 1 cls token.
 
-        :param reactions: map-like reactions collection
+        :param reactions: reactions collection
         :param max_distance: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position of products
         :param add_molecule_cls: add special token at first position of each molecule

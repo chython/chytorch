@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -23,7 +23,7 @@ from random import choice, random
 from torch import Size
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from typing import Union, List
+from typing import Union, List, Sequence
 from .encoder import MoleculeDataset, MoleculeDataPoint, collate_molecules
 from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
 
@@ -52,7 +52,7 @@ default_collate_fn_map[ContrastiveDataPoint] = contrastive_collate  # add auto_c
 
 
 class ContrastiveDataset(Dataset):
-    def __init__(self, molecules: List[List[Union[bytes, MoleculeContainer]]], *, max_distance: int = 10,
+    def __init__(self, molecules: Sequence[List[Union[bytes, MoleculeContainer]]], *, max_distance: int = 10,
                  add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
                  unpack: bool = False):
         """
@@ -60,7 +60,7 @@ class ContrastiveDataset(Dataset):
         For multiple similar molecules this dataset enumerate all possible pairs.
         For single element in list molecule returned twice.
 
-        :param molecules: list of lists of similar (by any means) molecules.
+        :param molecules: Sequence of lists of similar (by any means) molecules.
 
         See MoleculeDataset for other params description.
         """

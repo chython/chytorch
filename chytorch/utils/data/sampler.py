@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -48,36 +48,33 @@ class Mixin:
                 return
 
         if isinstance(self.dataset, (MoleculeDataset, ContrastiveMethylDataset)):
-            ds = self.dataset.molecules  # map-like data. not iterable.
             if self.dataset.unpack:
                 # 12 bit - atoms count
-                self.sizes = [MoleculeContainer.pack_len(ds[m]) for m in range(len(ds))]
+                self.sizes = [MoleculeContainer.pack_len(m) for m in self.dataset.molecules]
             else:
-                self.sizes = [len(ds[m]) for m in range(len(ds))]
+                self.sizes = [len(m) for m in self.dataset.molecules]
         elif isinstance(self.dataset, ReactionEncoderDataset):
-            ds = self.dataset.reactions
             x = int(self.dataset.add_molecule_cls)
             if self.dataset.unpack:
                 self.sizes = sizes = []
-                for r in range(len(ds)):
-                    rs, _, ps = ReactionContainer.pack_len(ds[r])
+                for r in self.dataset.reactions:
+                    rs, _, ps = ReactionContainer.pack_len(r)
                     sizes.append(sum(m + x for m in rs) + sum(m + x for m in ps))
             else:
                 self.sizes = [sum(len(m) + x for m in r.reactants) + sum(len(m) + x for m in r.products)
-                              for r in (ds[r] for r in range(len(ds)))]
+                              for r in self.dataset.reactions]
         elif isinstance(self.dataset, (ReactionDecoderDataset, PermutedReactionDataset)):
-            ds = self.dataset.reactions
             x = int(self.dataset.add_molecule_cls)
             y = int(self.dataset.add_cls)
             if self.dataset.unpack:
                 self.sizes = sizes = []
-                for r in range(len(ds)):
-                    rs, _, ps = ReactionContainer.pack_len(ds[r])
+                for r in self.dataset.reactions:
+                    rs, _, ps = ReactionContainer.pack_len(r)
                     sizes.append(max(sum(m + x for m in rs), sum(m + x for m in ps) + y))
             else:
                 self.sizes = [max(sum(len(m) + x for m in r.reactants),
                                   sum(len(m) + x for m in r.products) + y)
-                              for r in (ds[r] for r in range(len(ds)))]
+                              for r in self.dataset.reactions]
         else:
             raise TypeError('Unsupported Dataset')
 

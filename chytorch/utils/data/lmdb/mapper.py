@@ -28,7 +28,7 @@ class LMDBMapper(Dataset):
 
     def __init__(self, db: str, *, cache: Union[Path, str, None] = None, validate_cache: bool = True):
         """
-        Map LMDB key-value storage to the integer-key - value torch Dataset.
+        Map LMDB key-value storage to the Sequence Dataset.
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
 
         :param db: lmdb dir path

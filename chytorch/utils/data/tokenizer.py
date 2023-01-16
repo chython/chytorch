@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@ from torch import IntTensor, Tensor
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from typing import List, Union, Optional, Dict
+from typing import Sequence, Union, Optional, Dict
 
 
 def collate_sequences(batch) -> TensorType['batch', 'atoms', int]:
@@ -33,13 +33,13 @@ def collate_sequences(batch) -> TensorType['batch', 'atoms', int]:
 
 
 class SMILESDataset(Dataset):
-    def __init__(self, molecules: List[Union[bytes, MoleculeContainer]], *, format_spec: Optional[str] = None,
+    def __init__(self, molecules: Sequence[Union[bytes, MoleculeContainer]], *, format_spec: Optional[str] = None,
                  add_sos: bool = True, add_eos: bool = True,
                  unpack: bool = False, dictionary: Dict[str, int] = None):
         """
         Convert molecules into smiles and tokenize it.
 
-        :param molecules: map-like molecules collection
+        :param molecules: molecules collection
         :param format_spec: chython smiles formatting params
         :param add_sos: add start token == 1
         :param add_eos: add end token == 2

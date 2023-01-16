@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2021, 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -83,7 +83,7 @@ class MoleculeDataset(Dataset):
               distances shifted to differentiate from padding equal to zero and from special distance equal to 1
               that code unreachable atoms (e.g. salts).
 
-        :param molecules: map-like molecules collection
+        :param molecules: molecules collection
         :param max_distance: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position
         :param symmetric_cls: do bidirectional attention of cls to atoms and back
