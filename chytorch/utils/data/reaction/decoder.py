@@ -82,7 +82,8 @@ default_collate_fn_map[ReactionDecoderDataPoint] = collate_decoded_reactions  # 
 class ReactionDecoderDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, max_distance: int = 10,
                  add_cls: bool = True, add_molecule_cls: bool = True, symmetric_cls: bool = True,
-                 disable_components_interaction: bool = True, hide_molecule_cls: bool = False, unpack: bool = False):
+                 disable_components_interaction: bool = True, hide_molecule_cls: bool = False,
+                 max_neighbors: int = 14, unpack: bool = False):
         """
         convert reactions to tuple of:
             atoms, neighbors and distances tensors similar to molecule dataset.
@@ -96,6 +97,7 @@ class ReactionDecoderDataset(Dataset):
         :param symmetric_cls: do bidirectional attention of molecular cls to atoms and back
         :param disable_components_interaction: treat molecule components as isolated molecules
         :param hide_molecule_cls: disable attention of products atoms to molecule cls tokens
+        :param max_neighbors: set neighbors count greater than cutoff to cutoff value
         """
         if not add_molecule_cls:
             assert not hide_molecule_cls, 'add_molecule_cls should be True if hide_molecule_cls is True'
@@ -107,6 +109,7 @@ class ReactionDecoderDataset(Dataset):
         self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
         self.hide_molecule_cls = hide_molecule_cls
+        self.max_neighbors = max_neighbors
         self.unpack = unpack
 
     def __getitem__(self, item: int) -> ReactionDecoderDataPoint:
@@ -115,7 +118,8 @@ class ReactionDecoderDataset(Dataset):
             rxn = ReactionContainer.unpack(rxn)
         molecules = MoleculeDataset(rxn.reactants + rxn.products, max_distance=self.max_distance,
                                     add_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
-                                    disable_components_interaction=self.disable_components_interaction)
+                                    disable_components_interaction=self.disable_components_interaction,
+                                    max_neighbors=self.max_neighbors)
         r_atoms, r_neighbors, r_distances = [], [], []
         for i in range(len(rxn.reactants)):
             a, n, d = molecules[i]

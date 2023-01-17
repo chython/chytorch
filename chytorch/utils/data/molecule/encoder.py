@@ -70,7 +70,7 @@ default_collate_fn_map[MoleculeDataPoint] = collate_molecules  # add auto_collat
 class MoleculeDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *, max_distance: int = 10,
                  add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
-                 unpack: bool = False, distance_cutoff=None):
+                 max_neighbors: int = 14, unpack: bool = False, distance_cutoff=None):
         """
         convert molecules to tuple of:
             atoms vector with atomic numbers + 2,
@@ -88,6 +88,7 @@ class MoleculeDataset(Dataset):
         :param add_cls: add special token at first position
         :param symmetric_cls: do bidirectional attention of cls to atoms and back
         :param disable_components_interaction: treat components as isolated molecules
+        :param max_neighbors: set neighbors count greater than cutoff to cutoff value
         :param unpack: unpack molecules
         """
         assert add_cls or not symmetric_cls, 'add_cls should be True if symmetric_cls is True'
@@ -97,9 +98,11 @@ class MoleculeDataset(Dataset):
         self.add_cls = add_cls
         self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
+        self.max_neighbors = max_neighbors
         self.unpack = unpack
 
     def __getitem__(self, item: int) -> MoleculeDataPoint:
+        nc = self.max_neighbors
         mol = self.molecules[item]
         if self.unpack:
             mol = MoleculeContainer.unpack(mol)
@@ -114,7 +117,10 @@ class MoleculeDataset(Dataset):
         hgs = mol._hydrogens  # noqa
         for i, (n, a) in enumerate(mol.atoms(), self.add_cls):
             atoms[i] = a.atomic_number + 2
-            neighbors[i] = len(ngb[n]) + (hgs[n] or 0) + 2  # treat bad valence as 0-hydrogen
+            nb = len(ngb[n]) + (hgs[n] or 0)  # treat bad valence as 0-hydrogen
+            if nb > nc:
+                nb = nc
+            neighbors[i] = nb + 2
 
         sp = shortest_path(mol.adjacency_matrix(), method='FW', directed=False, unweighted=True) + 2
         nan_to_num(sp, copy=False, posinf=(0 if self.disable_components_interaction else 1))

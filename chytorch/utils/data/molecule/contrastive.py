@@ -54,7 +54,7 @@ default_collate_fn_map[ContrastiveDataPoint] = contrastive_collate  # add auto_c
 class ContrastiveDataset(Dataset):
     def __init__(self, molecules: Sequence[List[Union[bytes, MoleculeContainer]]], *, max_distance: int = 10,
                  add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
-                 unpack: bool = False):
+                 max_neighbors: int = 14, unpack: bool = False):
         """
         Prepare pairs of "similar" molecules from predefined list of groups.
         For multiple similar molecules this dataset enumerate all possible pairs.
@@ -69,6 +69,7 @@ class ContrastiveDataset(Dataset):
         self.add_cls = add_cls
         self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
+        self.max_neighbors = max_neighbors
         self.unpack = unpack
 
         self.total = total = []
@@ -82,7 +83,7 @@ class ContrastiveDataset(Dataset):
         i, p = self.total[item]
         mols = self.molecules[i]
         if (n := len(mols)) == 1:  # no pairs
-            m = MoleculeDataset(mols, max_distance=self.max_distance,
+            m = MoleculeDataset(mols, max_distance=self.max_distance, max_neighbors=self.max_neighbors,
                                 add_cls=self.add_cls, symmetric_cls=self.symmetric_cls, unpack=self.unpack,
                                 disable_components_interaction=self.disable_components_interaction)[0]
             return ContrastiveDataPoint(m, m)
@@ -101,7 +102,7 @@ class ContrastiveDataset(Dataset):
             m2 = mols[m2]
 
         ms = MoleculeDataset([m1, m2], max_distance=self.max_distance, add_cls=self.add_cls,
-                             symmetric_cls=self.symmetric_cls, unpack=self.unpack,
+                             symmetric_cls=self.symmetric_cls, max_neighbors=self.max_neighbors, unpack=self.unpack,
                              disable_components_interaction=self.disable_components_interaction)
         return ContrastiveDataPoint(ms[0], ms[1])
 
@@ -122,7 +123,7 @@ class ContrastiveDataset(Dataset):
 class ContrastiveMethylDataset(Dataset):
     def __init__(self, molecules: List[Union[bytes, MoleculeContainer]], *, rate: float = .15,
                  max_distance: int = 10, add_cls: bool = True, symmetric_cls: bool = True,
-                 disable_components_interaction: bool = False, unpack: bool = False):
+                 disable_components_interaction: bool = False, max_neighbors: int = 14, unpack: bool = False):
         """
         Prepare pairs of "similar" molecules.
         First molecule returns as is, second with randomly replaced by methyl aliphatic/aromatic carbon hydrogen.
@@ -140,6 +141,7 @@ class ContrastiveMethylDataset(Dataset):
         self.add_cls = add_cls
         self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
+        self.max_neighbors = max_neighbors
         self.unpack = unpack
 
     def __getitem__(self, item) -> ContrastiveDataPoint:
@@ -162,7 +164,7 @@ class ContrastiveMethylDataset(Dataset):
             if hgs[n] is None:  # aryl
                 hgs[n] = 0
         ms = MoleculeDataset([m1, m2], max_distance=self.max_distance, add_cls=self.add_cls,
-                             symmetric_cls=self.symmetric_cls,
+                             symmetric_cls=self.symmetric_cls, max_neighbors=self.max_neighbors,
                              disable_components_interaction=self.disable_components_interaction)
         return ContrastiveDataPoint(ms[0], ms[1])
 

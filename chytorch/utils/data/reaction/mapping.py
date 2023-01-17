@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -72,7 +72,7 @@ class MappedReactionDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *,
                  max_distance: int = 10, add_cls: bool = True, add_molecule_cls: bool = True,
                  symmetric_cls: bool = True, disable_components_interaction: bool = True,
-                 hide_molecule_cls: bool = False, unpack: bool = False):
+                 hide_molecule_cls: bool = False, max_neighbors: int = 14, unpack: bool = False):
         """
         See ReactionDecoderDataset for params description.
         """
@@ -83,6 +83,7 @@ class MappedReactionDataset(Dataset):
         self.symmetric_cls = symmetric_cls
         self.disable_components_interaction = disable_components_interaction
         self.hide_molecule_cls = hide_molecule_cls
+        self.max_neighbors = max_neighbors
         self.unpack = unpack
 
     def __getitem__(self, item: int) -> MappedReactionDataPoint:
@@ -90,7 +91,7 @@ class MappedReactionDataset(Dataset):
         rd = ReactionDecoderDataset((r,), max_distance=self.max_distance, add_cls=self.add_cls,
                                     add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
                                     disable_components_interaction=self.disable_components_interaction,
-                                    hide_molecule_cls=self.hide_molecule_cls)[0]
+                                    hide_molecule_cls=self.hide_molecule_cls, max_neighbors=self.max_neighbors)[0]
         r_atoms = []
         for m in r.reactants:
             if self.add_molecule_cls:
