@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -22,6 +22,14 @@ from torch import ones, zeros
 
 @lru_cache()
 def k_fold_mask(k_fold, ensemble, batch_size, train, device=None):
+    """
+    :param k_fold: number of folds
+    :param ensemble: number of predicting heads
+    :param batch_size: size of batch
+    :param train: create train of test mask. train - mask only 1/k_fold of data. test - mask 4/k_fold of data.
+
+    :param device: device of mask
+    """
     assert k_fold >= 3, 'k-fold should be at least 3'
     assert not ensemble % k_fold, 'ensemble should be divisible by k-fold'
     assert not batch_size % k_fold, 'batch size should be divisible by k-fold'
