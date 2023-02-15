@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@ class LMDBStructure(LMDBMapper):
 
     def __init__(self, db: str, *,
                  dtype: Union[Type[MoleculeContainer], Type[ReactionContainer]] = MoleculeContainer,
-                 cache: Union[Path, str, None] = None, validate_cache: bool = True):
+                 cache: Union[Path, str, None] = None):
         """
         Map LMDB key-value storage to the integer-key - chython structure.
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
@@ -35,9 +35,8 @@ class LMDBStructure(LMDBMapper):
         :param db: lmdb dir path
         :param dtype: type of structure
         :param cache: path to cache file for [re]storing index. caching disabled by default.
-        :param validate_cache: check cache-dataset size mismatch
         """
-        super().__init__(db, cache=cache, validate_cache=validate_cache)
+        super().__init__(db, cache=cache)
         self.dtype = dtype
 
     def __getitem__(self, item: int) -> Union[MoleculeContainer, ReactionContainer]:

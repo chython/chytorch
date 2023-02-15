@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -28,21 +28,20 @@ class LMDBProperties(LMDBMapper):
 
     def __init__(self, db: str, format_spec: str, *,
                  columns: Optional[Tuple[int, ...]] = None, dtype=float32, limit: int = 1000,
-                 map_size=1_000_000_000, cache: Union[Path, str, None] = None, validate_cache: bool = True):
+                 map_size=1_000_000_000, cache: Union[Path, str, None] = None):
         """
         Map LMDB key-value storage to the integer-key - Tensor value torch Dataset.
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
 
         :param db: lmdb dir path
         :param cache: path to cache file for [re]storing index. caching disabled by default.
-        :param validate_cache: check cache-dataset size mismatch
         :param format_spec: python.Struct format for unpacking data
         :param columns: column indices in data for retrieving
         :param dtype: output tensor dtype
         :param limit: write transaction putting before commit limit
         :param map_size: lmdb map_size
         """
-        super().__init__(db, cache=cache, validate_cache=validate_cache)
+        super().__init__(db, cache=cache)
         self.format_spec = format_spec
         self.columns = columns
         self.dtype = dtype

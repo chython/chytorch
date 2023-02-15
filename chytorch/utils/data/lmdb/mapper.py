@@ -26,14 +26,13 @@ from typing import Union
 class LMDBMapper(Dataset):
     __slots__ = ('db', 'cache', '_db', '_tr', '_mapping')
 
-    def __init__(self, db: str, *, cache: Union[Path, str, None] = None, validate_cache: bool = True):
+    def __init__(self, db: str, *, cache: Union[Path, str, None] = None):
         """
         Map LMDB key-value storage to the Sequence Dataset.
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
 
         :param db: lmdb dir path
         :param cache: path to cache file for [re]storing index. caching disabled by default.
-        :param validate_cache: check cache-dataset size mismatch
         """
         self.db = db
         self.cache = cache
@@ -46,14 +45,7 @@ class LMDBMapper(Dataset):
             return
         # load existing cache
         with cache.open('rb') as f:
-            mapping = load(f)
-        assert isinstance(mapping, list), 'Mapper cache invalid'
-        if validate_cache:
-            from lmdb import Environment
-
-            with Environment(db, readonly=True) as f:
-                assert len(mapping) == f.stat()['entries'], 'Mapper cache size mismatch'
-        self._mapping = mapping
+            self._mapping = load(f)
 
     def __getitem__(self, item: int):
         try:

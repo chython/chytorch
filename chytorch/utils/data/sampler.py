@@ -30,7 +30,7 @@ from .reaction import ReactionEncoderDataset, ReactionDecoderDataset, PermutedRe
 
 
 class Mixin:
-    def __init__(self, cache, validate, *args, **kwargs):
+    def __init__(self, cache, *args, **kwargs):
         if cache is not None:
             if isinstance(cache, str):
                 cache = Path(cache)
@@ -40,10 +40,7 @@ class Mixin:
                     raise TypeError('Unsupported Dataset')
                 # load existing cache
                 with cache.open('rb') as f:
-                    sizes = load(f)
-                assert isinstance(sizes, list), 'Sampler cache invalid'
-                assert not validate or len(sizes) == len(self.dataset), 'Sampler cache size mismatch'
-                self.sizes = sizes
+                    self.sizes = load(f)
                 super().__init__(*args, **kwargs)
                 return
 
@@ -126,7 +123,7 @@ class StructureSampler(Mixin, Sampler):
     def __init__(self, dataset: Union[MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
                                       ReactionDecoderDataset, PermutedReactionDataset],
                  batch_size: int, shuffle: bool = True, seed: int = 0, *,
-                 cache: Union[Path, str, None] = None, validate_cache: bool = True):
+                 cache: Union[Path, str, None] = None):
         """
         Sample molecules or reactions locally grouped by size to reduce idle calculations on paddings.
 
@@ -136,13 +133,12 @@ class StructureSampler(Mixin, Sampler):
 
         :param batch_size: expected batch size
         :param cache: path to cache file for [re]storing size index. caching disabled by default.
-        :param validate_cache: check cache-dataset size mismatch
         """
         self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.seed = seed
-        super().__init__(cache, validate_cache, dataset)
+        super().__init__(cache, dataset)
 
     def __iter__(self):
         if self.shuffle:
@@ -165,18 +161,16 @@ class DistributedStructureSampler(Mixin, DistributedSampler):
                                       ReactionDecoderDataset, PermutedReactionDataset],
                  batch_size: int, num_replicas: Optional[int] = None,
                  rank: Optional[int] = None, shuffle: bool = True, seed: int = 0, *,
-                 cache: Union[Path, str, None] = None, validate_cache: bool = True):
+                 cache: Union[Path, str, None] = None):
         """
         Sample molecules locally grouped by size to reduce idle calculations on paddings.
 
         :param batch_size: expected batch size
         :param cache: path to cache file for [re]storing size index. caching disabled by default.
-        :param validate_cache: check cache-dataset size mismatch
         """
         self.dataset = dataset  # ad-hoc for correct mixin init
         self.batch_size = batch_size
-        super().__init__(cache, validate_cache, dataset=dataset, num_replicas=num_replicas, rank=rank, shuffle=shuffle,
-                         seed=seed)
+        super().__init__(cache, dataset=dataset, num_replicas=num_replicas, rank=rank, shuffle=shuffle, seed=seed)
 
     def __iter__(self):
         if self.shuffle:

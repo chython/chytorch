@@ -25,19 +25,17 @@ from .mapper import LMDBMapper
 class LMDBPickle(LMDBMapper):
     __slots__ = ('limit', 'map_size', '_struct', '_readonly', '_count')
 
-    def __init__(self, db: str, limit: int = 1000, map_size=1_000_000_000,
-                 cache: Union[Path, str, None] = None, validate_cache: bool = True):
+    def __init__(self, db: str, limit: int = 1000, map_size=1_000_000_000, cache: Union[Path, str, None] = None):
         """
         Map LMDB key-value storage to the integer-key - Tensor value torch Dataset.
         Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
 
         :param db: lmdb dir path
         :param cache: path to cache file for [re]storing index. caching disabled by default.
-        :param validate_cache: check cache-dataset size mismatch
         :param limit: write transaction putting before commit limit
         :param map_size: lmdb map_size
         """
-        super().__init__(db, cache=cache, validate_cache=validate_cache)
+        super().__init__(db, cache=cache)
         self.limit = limit
         self.map_size = map_size
         self._readonly = True

@@ -22,9 +22,8 @@ from math import sqrt
 from random import choice, random
 from torch import Size
 from torch.utils.data import Dataset
-from torchtyping import TensorType
 from typing import Union, List, Sequence
-from .encoder import MoleculeDataset, MoleculeDataPoint, collate_molecules
+from .encoder import MoleculeDataset, MoleculeDataPoint, MoleculeDataBatch, collate_molecules
 from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
@@ -34,18 +33,19 @@ class ContrastiveDataPoint(NamedTuple):
 
 
 class ContrastiveDataBatch(NamedTuple, DataTypeMixin):
-    atoms: TensorType['2*batch', 'atoms', int]
-    neighbors: TensorType['2*batch', 'atoms', int]
-    distances: TensorType['2*batch', 'atoms', 'atoms', int]
+    first: MoleculeDataBatch
+    second: MoleculeDataBatch
 
 
 def contrastive_collate(batch, *, collate_fn_map=None) -> ContrastiveDataBatch:
     """
-    Prepares batches of contrastive molecules. First B elements are first elements of pairs, Second > second.
+    Prepares batches of contrastive molecules
     """
-    flat = [x for x, _ in batch]
-    flat.extend(x for _, x in batch)
-    return ContrastiveDataBatch(*collate_molecules(flat))
+    first, second = [], []
+    for f, s in batch:
+        first.append(f)
+        second.append(s)
+    return ContrastiveDataBatch(collate_molecules(first), collate_molecules(second))
 
 
 default_collate_fn_map[ContrastiveDataPoint] = contrastive_collate  # add auto_collation to the DataLoader
