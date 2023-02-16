@@ -96,5 +96,11 @@ class LMDBMapper(Dataset):
         else:
             del self._tr, self._db
 
+    def __getstate__(self):
+        return {'db': self.db, 'cache': self.cache}
+
+    def __setstate__(self, state):
+        self.__init__(**state)
+
 
 __all__ = ['LMDBMapper']

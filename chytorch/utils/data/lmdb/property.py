@@ -88,5 +88,12 @@ class LMDBProperties(LMDBMapper):
             tr.commit()
             del self._tr
 
+    def __getstate__(self):
+        state = super().__getstate__()
+        state['format_spec'] = self.format_spec
+        state['columns'] = self.columns
+        state['dtype'] = self.dtype
+        return state
+
 
 __all__ = ['LMDBProperties']

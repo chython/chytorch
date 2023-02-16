@@ -42,5 +42,10 @@ class LMDBStructure(LMDBMapper):
     def __getitem__(self, item: int) -> Union[MoleculeContainer, ReactionContainer]:
         return self.dtype.unpack(super().__getitem__(item))
 
+    def __getstate__(self):
+        state = super().__getstate__()
+        state['dtype'] = self.dtype
+        return state
+
 
 __all__ = ['LMDBStructure']
