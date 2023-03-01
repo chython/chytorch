@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -99,7 +99,6 @@ class ReactionDecoder(Module):
         Atoms, Neighbors, Distances - store merged reactants in odd and products molecules in even indices of batch.
         Distances - same as molecular encoder distances but batched diagonally.
          Used 0 for disabling sharing between molecules.
-        d_mask - reactants padding mask.
 
         :param batch: input reactions
         :param need_embedding: return atoms embeddings
