@@ -24,12 +24,14 @@ from typing import Union
 
 
 class LMDBMapper(Dataset):
+    """
+    Map LMDB key-value storage to the Sequence Dataset of bytestrings.
+    """
     __slots__ = ('db', 'cache', '_db', '_tr', '_mapping')
 
     def __init__(self, db: str, *, cache: Union[Path, str, None] = None):
         """
-        Map LMDB key-value storage to the Sequence Dataset.
-        Note: internally uses python dicts for int to bytes-key mapping and can be huge on big datasets.
+        Note: mapper internally uses python list for index to bytes-key mapping and can be huge on big datasets.
 
         :param db: lmdb dir path
         :param cache: path to cache file for [re]storing index. caching disabled by default.

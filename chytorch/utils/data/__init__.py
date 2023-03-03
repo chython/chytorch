@@ -21,6 +21,7 @@ from .molecule import *
 from .pandas import *
 from .reaction import *
 from .sampler import *
+from .smiles import *
 from .tokenizer import *
 from ._utils import *
 
@@ -40,9 +41,9 @@ def chained_collate(*collate_fns):
 
 __all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
            'ReactionEncoderDataset', 'ReactionDecoderDataset',  'PermutedReactionDataset', 'FakeReactionDataset',
-           'SMILESDataset', 'MappedReactionDataset',
+           'SMILESDataset', 'SMILESTokenizerDataset', 'MappedReactionDataset',
            'StructureSampler', 'DistributedStructureSampler',
-           'SizedList', 'LMDBMapper', 'LMDBProperties', 'LMDBStructure', 'LMDBPickle',
+           'SizedList', 'LMDBMapper', 'LMDBStructure', 'LMDBPickle', 'LMDBStruct', 'LMDBTensor',
            'PandasStructureDataset', 'PandasPropertiesDataset',
            'collate_molecules', 'contrastive_collate', 'collate_encoded_reactions', 'collate_decoded_reactions',
            'collate_permuted_reactions', 'collate_faked_reactions', 'collate_mapped_reactions',

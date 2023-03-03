@@ -18,7 +18,7 @@
 #
 from chython import MoleculeContainer
 from random import random
-from torch import IntTensor, Tensor
+from torch import IntTensor, Tensor, Size
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
@@ -32,7 +32,7 @@ def collate_sequences(batch) -> TensorType['batch', 'atoms', int]:
     return pad_sequence(batch, True)
 
 
-class SMILESDataset(Dataset):
+class SMILESTokenizerDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[bytes, MoleculeContainer]], *, format_spec: Optional[str] = None,
                  add_sos: bool = True, add_eos: bool = True,
                  unpack: bool = False, dictionary: Dict[str, int] = None):
@@ -75,6 +75,13 @@ class SMILESDataset(Dataset):
 
     def __len__(self):
         return len(self.molecules)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
 
     def __getitem__(self, item: int):
         d = self.dictionary
@@ -122,4 +129,4 @@ class SMILESDataset(Dataset):
         return self._reverse
 
 
-__all__ = ['SMILESDataset', 'collate_sequences']
+__all__ = ['SMILESTokenizerDataset', 'collate_sequences']

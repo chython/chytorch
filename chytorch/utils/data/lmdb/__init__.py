@@ -17,9 +17,8 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from .mapper import *
-from .pickle import *
 from .property import *
 from .structure import *
 
 
-__all__ = ['LMDBMapper', 'LMDBProperties', 'LMDBStructure', 'LMDBPickle']
+__all__ = ['LMDBMapper', 'LMDBStructure', 'LMDBPickle', 'LMDBStruct', 'LMDBTensor']
