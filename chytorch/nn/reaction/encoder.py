@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2021, 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -30,7 +30,8 @@ class ReactionEncoder(Module):
     def __init__(self, max_neighbors: int = 14, max_distance: int = 10, d_model: int = 1024, n_in_head: int = 16,
                  n_ex_head: int = 4, shared_in_weights: bool = True, shared_ex_weights: bool = True,
                  shared_layers: bool = False, num_in_layers: int = 8, num_ex_layers: int = 8,
-                 dim_feedforward: int = 3072, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
+                 dim_feedforward: int = 3072, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5,
+                 norm_first: bool = False):
         """
         Reaction TransformerEncoder layer.
 
@@ -41,6 +42,7 @@ class ReactionEncoder(Module):
         :param shared_in_weights: ALBERT-like intramolecular encoder layer sharing.
         :param shared_ex_weights: ALBERT-like reaction-level encoder layer sharing.
         :param shared_layers: Use the same encoder in molecule and reaction parts.
+        :param norm_first: do pre-normalization in encoder layers
         """
         if shared_layers:
             assert shared_in_weights == shared_ex_weights, 'use equal weights sharing mode'
@@ -52,7 +54,8 @@ class ReactionEncoder(Module):
         self.molecule_encoder = MoleculeEncoder(max_neighbors=max_neighbors, max_distance=max_distance, d_model=d_model,
                                                 nhead=n_in_head, num_layers=num_in_layers,
                                                 dim_feedforward=dim_feedforward, dropout=dropout, activation=activation,
-                                                layer_norm_eps=layer_norm_eps, shared_weights=shared_in_weights)
+                                                layer_norm_eps=layer_norm_eps, shared_weights=shared_in_weights,
+                                                norm_first=norm_first)
         self.role_encoder = Embedding(4, d_model, 0)
 
         if shared_layers:
@@ -61,11 +64,12 @@ class ReactionEncoder(Module):
             else:  # hide ModuleList from parameters lookup
                 self.layers = list(self.molecule_encoder.layers)
         elif shared_ex_weights:
-            self.layer = EncoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation, layer_norm_eps)
+            self.layer = EncoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation,
+                                      layer_norm_eps, norm_first)
             self.layers = [self.layer] * num_ex_layers
         else:
             self.layers = ModuleList(EncoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation,
-                                                  layer_norm_eps) for _ in range(num_ex_layers))
+                                                  layer_norm_eps, norm_first) for _ in range(num_ex_layers))
         self.nhead = n_ex_head
 
     @property

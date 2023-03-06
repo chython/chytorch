@@ -29,7 +29,8 @@ class ReactionDecoder(Module):
     def __init__(self, max_neighbors: int = 14, max_distance: int = 10, d_model: int = 1024, n_in_head: int = 16,
                  n_ex_head: int = 16, shared_in_weights: bool = True, shared_ex_weights: bool = True,
                  shared_layers: bool = False, num_in_layers: int = 8, num_ex_layers: int = 8,
-                 dim_feedforward: int = 3072, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
+                 dim_feedforward: int = 3072, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5,
+                 norm_first: bool = False):
         """
         Reaction TransformerDecoder layer.
 
@@ -41,6 +42,7 @@ class ReactionDecoder(Module):
         :param shared_ex_weights: ALBERT-like reaction-level encoder layer sharing.
         :param shared_layers: Share MHA and FF between MoleculeEncoder's EncoderLayer and DecoderLayer.
             Self and target MHA also will share the same weights.
+        :param norm_first: do pre-normalization in encoder layers
         """
         if shared_layers:
             assert shared_in_weights == shared_ex_weights, 'use equal weights sharing mode'
@@ -52,7 +54,8 @@ class ReactionDecoder(Module):
         self.molecule_encoder = MoleculeEncoder(max_neighbors=max_neighbors, max_distance=max_distance, d_model=d_model,
                                                 nhead=n_in_head, num_layers=num_in_layers,
                                                 dim_feedforward=dim_feedforward, dropout=dropout, activation=activation,
-                                                layer_norm_eps=layer_norm_eps, shared_weights=shared_in_weights)
+                                                layer_norm_eps=layer_norm_eps, shared_weights=shared_in_weights,
+                                                norm_first=norm_first)
 
         if shared_layers:
             self.layers = layers = []
@@ -73,13 +76,15 @@ class ReactionDecoder(Module):
                 layer.dropout3 = encoder.dropout2
                 layer.dropout4 = encoder.dropout3
                 layer.activation = encoder.activation
+                layer.norm_first = norm_first
                 layers.append(layer)
         elif shared_ex_weights:
-            self.layer = DecoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation, layer_norm_eps)
+            self.layer = DecoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation,
+                                      layer_norm_eps, norm_first)
             self.layers = [self.layer] * num_ex_layers
         else:
             self.layers = ModuleList(DecoderLayer(d_model, n_ex_head, dim_feedforward, dropout, activation,
-                                                  layer_norm_eps) for _ in range(num_ex_layers))
+                                                  layer_norm_eps, norm_first) for _ in range(num_ex_layers))
         self.nhead = n_ex_head
 
     @property

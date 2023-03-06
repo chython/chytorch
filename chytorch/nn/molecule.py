@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2021, 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -31,13 +31,14 @@ class MoleculeEncoder(Module):
     """
     def __init__(self, max_neighbors: int = 14, max_distance: int = 10, shared_weights: bool = True,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
-                 dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
+                 dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5, norm_first: bool = False):
         """
         Molecule TransformerEncoder layer.
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.
         :param shared_weights: ALBERT-like encoder weights sharing.
+        :param norm_first: do pre-normalization in encoder layers
         """
         super().__init__()
         self.atoms_encoder = Embedding(121, d_model, 0)
@@ -45,11 +46,11 @@ class MoleculeEncoder(Module):
         self.spatial_encoder = Embedding(max_distance + 3, nhead, 0)
 
         if shared_weights:
-            self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
+            self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, norm_first)
             self.layers = [self.layer] * num_layers
         else:
-            self.layers = ModuleList(EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps)
-                                     for _ in range(num_layers))
+            self.layers = ModuleList(EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation,
+                                                  layer_norm_eps, norm_first) for _ in range(num_layers))
 
         with no_grad():  # trick to disable padding attention
             self.spatial_encoder.weight[0].fill_(-inf)
