@@ -41,7 +41,7 @@ class ReactionEncoderDataBatch(NamedTuple, DataTypeMixin):
     roles: TensorType['batch', 'atoms', int]
 
 
-def collate_encoded_reactions(batch, *, collate_fn_map=None) -> ReactionEncoderDataBatch:
+def collate_encoded_reactions(batch, *, padding_left: bool = False, collate_fn_map=None) -> ReactionEncoderDataBatch:
     """
     Prepares batches of reactions.
 
@@ -49,18 +49,33 @@ def collate_encoded_reactions(batch, *, collate_fn_map=None) -> ReactionEncoderD
     """
     atoms, neighbors, distances, roles = [], [], [], []
     for a, n, d, r in batch:
-        atoms.append(a)
-        neighbors.append(n)
+        if padding_left:
+            atoms.append(a.flipud())
+            neighbors.append(n.flipud())
+            roles.append(r.flipud())
+        else:
+            atoms.append(a)
+            neighbors.append(n)
+            roles.append(r)
         distances.append(d)
-        roles.append(r)
 
     pa = pad_sequence(atoms, True)
     b, s = pa.shape
     tmp = zeros(b, s, s, dtype=int32)
-    tmp[:, :, 0] = 1  # prevent nan in MHA softmax on padding
+    # prevent nan in MHA softmax on padding
+    if padding_left:
+        tmp[:, :, -1] = 1
+    else:
+        tmp[:, :, 0] = 1
     for n, d in enumerate(distances):
         s = d.size(0)
-        tmp[n, :s, :s] = d
+        if padding_left:
+            tmp[n, -s:, -s:] = d
+        else:
+            tmp[n, :s, :s] = d
+    if padding_left:
+        return ReactionEncoderDataBatch(pa.fliplr(), pad_sequence(neighbors, True).fliplr(), tmp,
+                                        pad_sequence(roles, True).fliplr())
     return ReactionEncoderDataBatch(pa, pad_sequence(neighbors, True), tmp, pad_sequence(roles, True))
 
 

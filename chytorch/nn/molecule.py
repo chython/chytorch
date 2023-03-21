@@ -17,7 +17,7 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from math import inf
-from torch import no_grad
+from torch import no_grad, stack
 from torch.nn import Embedding, GELU, Module, ModuleList
 from torchtyping import TensorType
 from typing import Tuple, Union
@@ -63,7 +63,7 @@ class MoleculeEncoder(Module):
         return self.spatial_encoder.num_embeddings - 3
 
     def forward(self, batch: MoleculeDataBatch,
-                /, *, need_embedding: bool = True, need_weights: bool = False) -> \
+                /, *, need_embedding: bool = True, need_weights: bool = False, averaged_weights: bool = False) -> \
             Union[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms'],
                   Tuple[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms']]]:
         """
@@ -74,14 +74,32 @@ class MoleculeEncoder(Module):
         Neighbors equal to 1 reserved for training tricks like MLM. Use 0 for cls.
         Distances should be coded from 2 (means self-loop) to max_distance + 2.
         Non-reachable atoms should be coded by 1.
+
+        :param need_embedding: return atoms embeddings
+        :param need_weights: return attention weights
+        :param averaged_weights: return averaged attentions from each layer, otherwise only last layer
         """
-        assert need_weights or need_embedding, 'at least weights or embeddings should be returned'
+        if not need_weights:
+            assert not averaged_weights, 'averaging without need_weights'
+            assert need_embedding, 'at least weights or embeddings should be returned'
 
         atoms, neighbors, distances = batch
         d_mask = self.spatial_encoder(distances).permute(0, 3, 1, 2).flatten(end_dim=1)  # BxNxNxH > BxHxNxN > B*HxNxN
 
         # cls token in neighbors coded by 0 to disable centrality encoding.
         x = self.atoms_encoder(atoms) + self.centrality_encoder(neighbors)
+
+        if averaged_weights:  # average attention weights from each layer
+            w = []
+            for lr in self.layers[:-1]:  # noqa
+                x, a = lr(x, d_mask, need_weights=True)
+                w.append(a)
+            x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=True)
+            w.append(a)
+            w = stack(w, dim=-1).mean(-1)
+            if need_embedding:
+                return x, w
+            return w
         for lr in self.layers[:-1]:  # noqa
             x, _ = lr(x, d_mask)
         x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=need_weights)
