@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -30,16 +30,25 @@ class VotingClassifier(Module):
     Simple two-layer perceptron with layer normalization and dropout adopted for effective ensemble classification.
     """
     def __init__(self, ensemble: int = 10, output: int = 1, n_classes: int = 2, hidden: int = 256,
-                 dropout: float = .5, activation=GELU, layer_norm_eps: float = 1e-5, loss_function=cross_entropy):
+                 input: Optional[int] = None, dropout: float = .5, activation=GELU, layer_norm_eps: float = 1e-5,
+                 loss_function=cross_entropy, norm_first: bool = False):
         """
         :param ensemble: number of predictive heads per output
-        :param output: number of predicted properties in multitask mode. By-default single task mode is active.
+        :param input: input features size. By-default do lazy initialization
+        :param output: number of predicted properties in multitask mode. By-default single task mode is active
         :param n_classes: number of classes
+        :param norm_first: do normalization of input
         """
         assert n_classes >= 2, 'number of classes should be higher or equal than 2'
         assert ensemble > 0 and output > 0, 'ensemble and output should be positive integers'
         super().__init__()
-        self.linear1 = LazyLinear(hidden * ensemble * output)
+        if input is None:
+            self.linear1 = LazyLinear(hidden * ensemble * output)
+            assert not norm_first, 'input size required for prenormalization'
+        else:
+            if norm_first:
+                self.norm_first = LayerNorm(input, layer_norm_eps)
+            self.linear1 = Linear(input, hidden * ensemble * output)
         self.layer_norm = LayerNorm(hidden, layer_norm_eps)
         self.activation = activation()
         self.dropout = Dropout(dropout)
@@ -48,13 +57,17 @@ class VotingClassifier(Module):
 
         self._n_classes = n_classes
         self._ensemble = ensemble
+        self._input = input
         self._hidden = hidden
         self._output = output
+        self._norm_first = norm_first
 
     def forward(self, x):
         """
         Returns ensemble of predictions in shape [Batch x Ensemble x Classes].
         """
+        if self._norm_first:
+            x = self.norm_first(x)
         # B x E >> B x N*H >> B x N x H >> N x B x H
         x = self.linear1(x).view(-1, self._ensemble * self._output, self._hidden).transpose(0, 1)
         x = self.dropout(self.activation(self.layer_norm(x)))

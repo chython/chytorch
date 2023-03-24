@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -31,9 +31,11 @@ class BinaryVotingClassifier(VotingRegressor):
     Simple two-layer perceptron with layer normalization and dropout adopted for effective
     ensemble binary classification tasks.
     """
-    def __init__(self, ensemble: int = 10, output: int = 1, hidden: int = 256, dropout: float = .5,
-                 activation=GELU, layer_norm_eps: float = 1e-5, loss_function=binary_cross_entropy_with_logits):
-        super().__init__(ensemble, output, hidden, dropout, activation, layer_norm_eps, loss_function)
+    def __init__(self, ensemble: int = 10, output: int = 1, hidden: int = 256, input: Optional[int] = None,
+                 dropout: float = .5, activation=GELU, layer_norm_eps: float = 1e-5,
+                 loss_function=binary_cross_entropy_with_logits, norm_first: bool = False):
+        super().__init__(ensemble, output, hidden, input, dropout, activation,
+                         layer_norm_eps, loss_function, norm_first)
 
     @no_grad()
     def predict(self, x: TensorType['batch', 'embedding'], *,
