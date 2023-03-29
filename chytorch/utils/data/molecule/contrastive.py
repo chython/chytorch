@@ -126,9 +126,7 @@ class ContrastiveMethylDataset(Dataset):
                  disable_components_interaction: bool = False, max_neighbors: int = 14, unpack: bool = False):
         """
         Prepare pairs of "similar" molecules.
-        First molecule returns as is, second with randomly replaced by methyl aliphatic/aromatic carbon hydrogen.
-
-        This dataset usable for contrastive learning.
+        First molecule returns as is, second with randomly replaced by methyl carbon/nitrogen's implicit hydrogen atom.
 
         :param molecules: list of molecules.
         :param rate: probability of replacement.
@@ -151,18 +149,20 @@ class ContrastiveMethylDataset(Dataset):
 
         potent = []
         for n, a in m1.atoms():
-            if a.atomic_number == 6 and hgs[n] and a.hybridization in (1, 4):
+            if hgs[n] and a.atomic_number in (6, 7):  # only C,N atoms with hydrogens
                 potent.append(n)
                 if random() < self.rate:
-                    m2.add_bond(n, m2.add_atom(C()), 1)
-                    if hgs[n] is None:  # aryl
-                        hgs[n] = 0
+                    m = m2.add_atom(C(), _skip_hydrogen_calculation=True)
+                    m2.add_bond(n, m, 1, _skip_hydrogen_calculation=True)
+                    hgs[n] -= 1
+                    hgs[m] = 3  # CH3
         # at least 1 atom should be picked
         if len(m2) == len(m1) and potent:
             n = choice(potent)
-            m2.add_bond(n, m2.add_atom(C()), 1)
-            if hgs[n] is None:  # aryl
-                hgs[n] = 0
+            m = m2.add_atom(C(), _skip_hydrogen_calculation=True)
+            m2.add_bond(n, m, 1, _skip_hydrogen_calculation=True)
+            hgs[n] -= 1
+            hgs[m] = 3  # CH3
         ms = MoleculeDataset([m1, m2], max_distance=self.max_distance, add_cls=self.add_cls,
                              symmetric_cls=self.symmetric_cls, max_neighbors=self.max_neighbors,
                              disable_components_interaction=self.disable_components_interaction)
