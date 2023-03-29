@@ -18,7 +18,7 @@
 #
 from math import inf
 from torch import no_grad, stack
-from torch.nn import Embedding, GELU, Module, ModuleList
+from torch.nn import Embedding, GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
 from typing import Tuple, Union
 from .transformer import EncoderLayer
@@ -31,19 +31,26 @@ class MoleculeEncoder(Module):
     """
     def __init__(self, max_neighbors: int = 14, max_distance: int = 10, shared_weights: bool = True,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
-                 dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5, norm_first: bool = False):
+                 dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5,
+                 norm_first: bool = False, post_norm: bool = False):
         """
         Molecule TransformerEncoder layer.
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.
         :param shared_weights: ALBERT-like encoder weights sharing.
-        :param norm_first: do pre-normalization in encoder layers
+        :param norm_first: do pre-normalization in encoder layers.
+        :param post_norm: do normalization of output. Works only when norm_first=True.
         """
         super().__init__()
         self.atoms_encoder = Embedding(121, d_model, 0)
         self.centrality_encoder = Embedding(max_neighbors + 3, d_model, 0)
         self.spatial_encoder = Embedding(max_distance + 3, nhead, 0)
+
+        self.post_norm = post_norm
+        if post_norm:
+            assert norm_first, 'post_norm requires norm_first'
+            self.norm = LayerNorm(d_model, layer_norm_eps)
 
         if shared_weights:
             self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, norm_first)
@@ -98,12 +105,16 @@ class MoleculeEncoder(Module):
             w.append(a)
             w = stack(w, dim=-1).mean(-1)
             if need_embedding:
+                if self.post_norm:
+                    x = self.norm(x)
                 return x, w
             return w
         for lr in self.layers[:-1]:  # noqa
             x, _ = lr(x, d_mask)
         x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=need_weights)
         if need_embedding:
+            if self.post_norm:
+                x = self.norm(x)
             if need_weights:
                 return x, a
             return x
