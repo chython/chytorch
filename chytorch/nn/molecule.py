@@ -17,12 +17,16 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from math import inf
-from torch import no_grad, stack
+from torch import no_grad, stack, ones, long
 from torch.nn import Embedding, GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
 from typing import Tuple, Union
 from .transformer import EncoderLayer
 from ..utils.data import MoleculeDataBatch
+
+
+def _hook(x):
+    return x.index_fill(0, ones(1, dtype=long, device=x.device), 0)
 
 
 class MoleculeEncoder(Module):
@@ -32,7 +36,7 @@ class MoleculeEncoder(Module):
     def __init__(self, max_neighbors: int = 14, max_distance: int = 10, shared_weights: bool = True,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
                  dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5,
-                 norm_first: bool = False, post_norm: bool = False):
+                 norm_first: bool = False, post_norm: bool = False, zero_bias: bool = False):
         """
         Molecule TransformerEncoder layer.
 
@@ -41,6 +45,7 @@ class MoleculeEncoder(Module):
         :param shared_weights: ALBERT-like encoder weights sharing.
         :param norm_first: do pre-normalization in encoder layers.
         :param post_norm: do normalization of output. Works only when norm_first=True.
+        :param zero_bias: use frozen zero bias of attention for non-reachable atoms.
         """
         super().__init__()
         self.atoms_encoder = Embedding(121, d_model, 0)
@@ -61,6 +66,9 @@ class MoleculeEncoder(Module):
 
         with no_grad():  # trick to disable padding attention
             self.spatial_encoder.weight[0].fill_(-inf)
+            if zero_bias:
+                self.spatial_encoder.weight[1].fill_(0)
+                self.spatial_encoder.weight.register_hook(_hook)
 
     @property
     def max_distance(self):
