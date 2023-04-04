@@ -21,12 +21,20 @@ from torch import no_grad, stack, ones, long
 from torch.nn import Embedding, GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
 from typing import Tuple, Union
+from warnings import warn
 from .transformer import EncoderLayer
 from ..utils.data import MoleculeDataBatch
 
 
 def _hook(x):
     return x.index_fill(0, ones(1, dtype=long, device=x.device), 0)
+
+
+def _update(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
+    if prefix + 'centrality_encoder.weight' in state_dict:
+        warn('fixed chytorch<1.37 checkpoint', DeprecationWarning)
+        state_dict[prefix + 'neighbors_encoder.weight'] = state_dict.pop(prefix + 'centrality_encoder.weight')
+        state_dict[prefix + 'distance_encoder.weight'] = state_dict.pop(prefix + 'spatial_encoder.weight')
 
 
 class MoleculeEncoder(Module):
@@ -49,8 +57,8 @@ class MoleculeEncoder(Module):
         """
         super().__init__()
         self.atoms_encoder = Embedding(121, d_model, 0)
-        self.centrality_encoder = Embedding(max_neighbors + 3, d_model, 0)
-        self.spatial_encoder = Embedding(max_distance + 3, nhead, 0)
+        self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0)
+        self.distance_encoder = Embedding(max_distance + 3, nhead, 0)
 
         self.post_norm = post_norm
         if post_norm:
@@ -65,17 +73,18 @@ class MoleculeEncoder(Module):
                                                   layer_norm_eps, norm_first) for _ in range(num_layers))
 
         with no_grad():  # trick to disable padding attention
-            self.spatial_encoder.weight[0].fill_(-inf)
+            self.distance_encoder.weight[0].fill_(-inf)
             if zero_bias:
-                self.spatial_encoder.weight[1].fill_(0)
-                self.spatial_encoder.weight.register_hook(_hook)
+                self.distance_encoder.weight[1].fill_(0)
+                self.distance_encoder.weight.register_hook(_hook)
+        self._register_load_state_dict_pre_hook(_update)
 
     @property
     def max_distance(self):
         """
-        Distance cutoff in spatial encoder.
+        Distance encoding cutoff
         """
-        return self.spatial_encoder.num_embeddings - 3
+        return self.distance_encoder.num_embeddings - 3
 
     def forward(self, batch: MoleculeDataBatch,
                 /, *, need_embedding: bool = True, need_weights: bool = False, averaged_weights: bool = False) -> \
@@ -99,10 +108,10 @@ class MoleculeEncoder(Module):
             assert need_embedding, 'at least weights or embeddings should be returned'
 
         atoms, neighbors, distances = batch
-        d_mask = self.spatial_encoder(distances).permute(0, 3, 1, 2).flatten(end_dim=1)  # BxNxNxH > BxHxNxN > B*HxNxN
+        d_mask = self.distance_encoder(distances).permute(0, 3, 1, 2).flatten(end_dim=1)  # BxNxNxH > BxHxNxN > B*HxNxN
 
-        # cls token in neighbors coded by 0 to disable centrality encoding.
-        x = self.atoms_encoder(atoms) + self.centrality_encoder(neighbors)
+        # cls token in neighbors coded by 0
+        x = self.atoms_encoder(atoms) + self.neighbors_encoder(neighbors)
 
         if averaged_weights:  # average attention weights from each layer
             w = []
@@ -127,6 +136,16 @@ class MoleculeEncoder(Module):
                 return x, a
             return x
         return a
+
+    @property
+    def centrality_encoder(self):
+        warn('centrality_encoder renamed to neighbors_encoder in chytorch 1.37', DeprecationWarning)
+        return self.neighbors_encoder
+
+    @property
+    def spatial_encoder(self):
+        warn('spatial_encoder renamed to distance_encoder in chytorch 1.37', DeprecationWarning)
+        return self.distance_encoder
 
 
 __all__ = ['MoleculeEncoder']
