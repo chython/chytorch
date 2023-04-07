@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <rnugmano@its.jnj.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <rnugmano@its.jnj.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -33,17 +33,12 @@ class PandasStructureDataset(Dataset):
         :param dtype: type of structure
         :param unpack: unpack molecules or reactions from bytes
         """
-        if unpack:
-            assert all(isinstance(x, bytes) for x in data[structure]), 'packed structures expected'
-        else:
-            assert all(isinstance(x, dtype) for x in data[structure]), f'{dtype} objects expected'
-        self.data = data
-        self.structure = structure
+        self.data = data[structure].to_numpy()
         self.dtype = dtype
         self.unpack = unpack
 
     def __getitem__(self, item: int) -> Union[MoleculeContainer, ReactionContainer]:
-        x = self.data[self.structure].iloc[item]
+        x = self.data[item]
         if self.unpack:
             return self.dtype.unpack(x)
         return x
@@ -68,12 +63,11 @@ class PandasPropertiesDataset(Dataset):
         :param properties: column names with properties
         :param dtype: output tensor dtype
         """
-        self.data = data
-        self.properties = properties
+        self.data = data[properties].to_numpy()
         self.dtype = dtype
 
     def __getitem__(self, item: int) -> Tensor:
-        return tensor(self.data[self.properties].iloc[item], dtype=self.dtype)
+        return tensor(self.data[item], dtype=self.dtype)
 
     def __len__(self):
         return len(self.data)
