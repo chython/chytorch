@@ -20,7 +20,7 @@ from math import inf
 from torch import no_grad, stack, ones, long
 from torch.nn import Embedding, GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 from warnings import warn
 from .transformer import EncoderLayer
 from ..utils.data import MoleculeDataBatch
@@ -86,10 +86,14 @@ class MoleculeEncoder(Module):
         """
         return self.distance_encoder.num_embeddings - 3
 
-    def forward(self, batch: MoleculeDataBatch,
-                /, *, need_embedding: bool = True, need_weights: bool = False, averaged_weights: bool = False) -> \
+    def forward(self, batch: MoleculeDataBatch, /, *, need_embedding: bool = True, need_weights: bool = False,
+                averaged_weights: bool = False, intermediate_embeddings: bool = False) -> \
             Union[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms'],
-                  Tuple[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms']]]:
+                  Tuple[TensorType['batch', 'atoms', 'embedding'], TensorType['batch', 'atoms', 'atoms']],
+                  Tuple[TensorType['batch', 'atoms', 'embedding'], List[TensorType['batch', 'atoms', 'embedding']]],
+                  Tuple[TensorType['batch', 'atoms', 'embedding'],
+                        TensorType['batch', 'atoms', 'atoms'],
+                        List[TensorType['batch', 'atoms', 'embedding']]]]:
         """
         Use 0 for padding.
         Atoms should be coded by atomic numbers + 2.
@@ -102,10 +106,13 @@ class MoleculeEncoder(Module):
         :param need_embedding: return atoms embeddings
         :param need_weights: return attention weights
         :param averaged_weights: return averaged attentions from each layer, otherwise only last layer
+        :param intermediate_embeddings: return embedding of each layer including initial weights but last
         """
         if not need_weights:
             assert not averaged_weights, 'averaging without need_weights'
             assert need_embedding, 'at least weights or embeddings should be returned'
+        elif intermediate_embeddings:
+            assert need_embedding, 'need_embedding should be active for intermediate_embeddings option'
 
         atoms, neighbors, distances = batch
         d_mask = self.distance_encoder(distances).permute(0, 3, 1, 2).flatten(end_dim=1)  # BxNxNxH > BxHxNxN > B*HxNxN
@@ -113,26 +120,40 @@ class MoleculeEncoder(Module):
         # cls token in neighbors coded by 0
         x = self.atoms_encoder(atoms) + self.neighbors_encoder(neighbors)
 
+        if intermediate_embeddings:
+            embeddings = [x]
+
         if averaged_weights:  # average attention weights from each layer
             w = []
             for lr in self.layers[:-1]:  # noqa
                 x, a = lr(x, d_mask, need_weights=True)
                 w.append(a)
+                if intermediate_embeddings:
+                    embeddings.append(x)  # noqa
             x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=True)
             w.append(a)
             w = stack(w, dim=-1).mean(-1)
             if need_embedding:
                 if self.post_norm:
                     x = self.norm(x)
+                if intermediate_embeddings:
+                    return x, w, embeddings
                 return x, w
             return w
+
         for lr in self.layers[:-1]:  # noqa
             x, _ = lr(x, d_mask)
+            if intermediate_embeddings:
+                embeddings.append(x)  # noqa
         x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=need_weights)
         if need_embedding:
             if self.post_norm:
                 x = self.norm(x)
-            if need_weights:
+            if intermediate_embeddings:
+                if need_weights:
+                    return x, a, embeddings
+                return x, embeddings
+            elif need_weights:
                 return x, a
             return x
         return a
