@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2021, 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -27,4 +27,4 @@ from .voting import *
 
 __all__ = ['MoleculeEncoder', 'ReactionEncoder', 'ReactionDecoder', 'SequenceDecoder',
            'PulingHardtanh', 'VotingClassifier', 'VotingRegressor', 'BinaryVotingClassifier', 'Slicer',
-           'Converters', 'MultiColumnConverters']
+           'Converters', 'MultiColumnConverters', 'MultiTaskLoss']

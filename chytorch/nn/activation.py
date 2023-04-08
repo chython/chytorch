@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -16,7 +16,9 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from torch.nn import Module
+from torch import float32, zeros_like, exp
+from torch.nn import Module, Parameter
+from torchtyping import TensorType
 from .functional import puling_hardtanh
 
 
@@ -33,4 +35,32 @@ class PulingHardtanh(Module):
         return puling_hardtanh(x, self.mn, self.mx)
 
 
-__all__ = ['PulingHardtanh']
+class MultiTaskLoss(Module):
+    """
+    Auto-scalable loss for multitask training.
+
+    https://arxiv.org/abs/1705.07115
+    """
+    def __init__(self, loss_type: TensorType['loss_type', bool], *, reduction='mean'):
+        """
+        :param loss_type: vector equal to the number of tasks losses. True for regression and False for classification.
+        """
+        super().__init__()
+        self.log = Parameter(zeros_like(loss_type, dtype=float32))
+        self.register_buffer('coefficient', (loss_type + 1.).to(float32))
+        self.reduction = reduction
+
+    def forward(self, x: TensorType['loss', float]):
+        """
+        :param x: 1d vector of losses or 2d matrix of batch X losses.
+        """
+        x = x / (self.coefficient * exp(self.log)) + self.log / 2
+
+        if self.reduction == 'sum':
+            return x.sum()
+        elif self.reduction == 'mean':
+            return x.mean()
+        return x
+
+
+__all__ = ['PulingHardtanh', 'MultiTaskLoss']
