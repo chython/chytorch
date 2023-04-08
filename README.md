@@ -31,20 +31,15 @@ Supported `chython.MoleculeContainer` and `chython.ReactionContainer` objects, a
 
 `chytorch.utils.data.collate_molecules` and `chytorch.utils.data.collate_reactions` - collate functions for `torch.utils.data.DataLoader`.
 
-Note: torch DataLoader automatically do proper collation.
+Note: torch DataLoader automatically do proper collation since 1.13 release.
 
 Example:
 
-    from chython import SMILESRead
-    from chytorch.utils.data import MoleculeDataset
+    from chytorch.utils.data import MoleculeDataset, SMILESDataset
     from torch.utils.data import DataLoader
 
-    data = []
-    for r in SMILESRead('data.smi'):
-        r.canonicalize()  # fix aromaticity and functional groups
-        data.append(r)
-
-    ds = MoleculeDataset(data)
+    data = ['CCO', 'CC=O']
+    ds = MoleculeDataset(SMILESDataset(data, cache={}))
     dl = DataLoader(ds, batch_size=10)
 
 **Forward call:**
@@ -69,14 +64,14 @@ Reactions include additional tensor with reaction role codes for each token.
 
 **Combine molecules and labels:**
 
-`chytorch.utils.data.chained_collate` - helper for combining different data parts. 
+`chytorch.utils.data.chained_collate` - helper for combining different data parts. Useful for tricky input.
 
     from torch import stack
     from torch.utils.data import DataLoader, TensorDataset
     from chytorch.utils.data import chained_collate, collate_molecules, MoleculeDataset
 
     dl = DataLoader(TensorDataset(MoleculeDataset(molecules_list), properties_tensor),
-        collate_fn=chained_collate(collate_molecules, torch.stack))
+        collate_fn=chained_collate(collate_molecules, stack))
 
 
 **Scheduler:**
@@ -85,8 +80,11 @@ Reactions include additional tensor with reaction role codes for each token.
 
 **Voting NN with single hidden layer:**
 
-`chytorch.nn.VotingClassifier` and `chytorch.nn.VotingRegressor` - speed optimized multiple heads for ensemble predictions.
+`chytorch.nn.VotingClassifier`, `chytorch.nn.BinaryVotingClassifier` and `chytorch.nn.VotingRegressor` - speed optimized multiple heads for ensemble predictions.
 
+**Helper Modules:**
+
+`chytorch.nn.Slicer` - do tensor slicing. Useful for transformer's CLS token extraction in `torch.nn.Sequence`.
 
 **Caching:**
 
@@ -94,5 +92,11 @@ Reactions include additional tensor with reaction role codes for each token.
 
 **Data Wrappers:**
 
-`chytorch.utils.data.LMDBProperties`, `chytorch.utils.data.LMDBStructure`,
-`chytorch.utils.data.PandasStructureDataset`, `chytorch.utils.data.PandasPropertiesDataset` - DataSet like helpers for LMDB and Pandas.DataFrame stored data processing.
+In `chytorch.utils.data` module stored different data wrappers for simplifying ML workflows.
+All wrappers have `torch.utils.data.Dataset` interface.
+
+* `SizedList` - list wrapper with `size()` method. Useful with `torch.utils.data.TensorDataset`. 
+* `SMILESDataset` - on-the-fly smiles to `chython.MoleculeContainer` or `chython.ReactionContainer` parser.
+* `LMDBMapper`, `LMDBStructure`, `LMDBPickle`, `LMDBStruct`, `LMDBTensor` - data extractors from LMDB KV storage.
+* `PandasStructureDataset`, `PandasPropertiesDataset` - wrappers on top of `pandas.DataFrame`.
+* `SMILESTokenizerDataset` - on-the-fly generator of tokenized SMILES.
