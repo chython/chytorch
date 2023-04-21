@@ -16,8 +16,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from math import inf
-from torch import no_grad, stack, ones, long
+from math import inf, sqrt
+from torch import no_grad, stack, ones, long, empty_like
 from torch.nn import Embedding, GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
 from typing import Tuple, Union, List
@@ -43,8 +43,8 @@ class MoleculeEncoder(Module):
     """
     def __init__(self, max_neighbors: int = 14, max_distance: int = 10, shared_weights: bool = True,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
-                 dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5,
-                 norm_first: bool = False, post_norm: bool = False, zero_bias: bool = False):
+                 dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5, norm_first: bool = False,
+                 post_norm: bool = False, zero_bias: bool = False, perturbation: float = 0.):
         """
         Molecule TransformerEncoder layer.
 
@@ -54,12 +54,15 @@ class MoleculeEncoder(Module):
         :param norm_first: do pre-normalization in encoder layers.
         :param post_norm: do normalization of output. Works only when norm_first=True.
         :param zero_bias: use frozen zero bias of attention for non-reachable atoms.
+        :param perturbation: add perturbation to embedding (https://aclanthology.org/2021.naacl-main.460.pdf).
+            Disabled by default
         """
         super().__init__()
         self.atoms_encoder = Embedding(121, d_model, 0)
         self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0)
         self.distance_encoder = Embedding(max_distance + 3, nhead, 0)
 
+        self.perturbation = perturbation and perturbation / sqrt(d_model)
         self.post_norm = post_norm
         if post_norm:
             assert norm_first, 'post_norm requires norm_first'
@@ -119,6 +122,9 @@ class MoleculeEncoder(Module):
 
         # cls token in neighbors coded by 0
         x = self.atoms_encoder(atoms) + self.neighbors_encoder(neighbors)
+
+        if self.perturbation:
+            x = x + empty_like(x).uniform_(-self.perturbation, self.perturbation)
 
         if intermediate_embeddings:
             embeddings = [x]
