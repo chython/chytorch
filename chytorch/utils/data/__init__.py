@@ -19,6 +19,7 @@
 from .lmdb import *
 from .molecule import *
 from .pandas import *
+from .product import *
 from .reaction import *
 from .sampler import *
 from .smiles import *
@@ -26,25 +27,12 @@ from .tokenizer import *
 from ._utils import *
 
 
-def chained_collate(*collate_fns):
-    """
-    Collate batch of tuples with different data structures by different collate functions.
-    """
-    def w(batch):
-        sub_batches = [[] for _ in collate_fns]
-        for x in batch:
-            for y, s in zip(x, sub_batches):
-                s.append(y)
-        return [f(x) for x, f in zip(sub_batches, collate_fns)]
-    return w
-
-
-__all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
-           'ReactionEncoderDataset', 'ReactionDecoderDataset',  'PermutedReactionDataset', 'FakeReactionDataset',
-           'SMILESDataset', 'SMILESTokenizerDataset', 'MappedReactionDataset',
+__all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset', 'MoleculeMixerDataset',
+           'MoleculeProductDataset', 'ReactionEncoderDataset', 'ReactionDecoderDataset',  'PermutedReactionDataset',
+           'FakeReactionDataset', 'SMILESDataset', 'SMILESTokenizerDataset', 'MappedReactionDataset', 'ProductDataset',
            'StructureSampler', 'DistributedStructureSampler',
-           'SizedList', 'LMDBMapper', 'LMDBStructure', 'LMDBPickle', 'LMDBStruct', 'LMDBTensor',
+           'SizedList', 'ShuffledList', 'LMDBMapper', 'LMDBStructure', 'LMDBPickle', 'LMDBStruct', 'LMDBTensor',
            'PandasStructureDataset', 'PandasPropertiesDataset',
-           'collate_molecules', 'contrastive_collate', 'collate_encoded_reactions', 'collate_decoded_reactions',
-           'collate_permuted_reactions', 'collate_faked_reactions', 'collate_mapped_reactions',
-           'collate_sequences', 'chained_collate']
+           'collate_molecules', 'contrastive_collate', 'collate_mixed_molecules', 'collate_encoded_reactions',
+           'collate_decoded_reactions', 'collate_permuted_reactions', 'collate_faked_reactions',
+           'collate_mapped_reactions', 'collate_sequences', 'chained_collate']

@@ -39,28 +39,39 @@ class MoleculeDataBatch(NamedTuple, DataTypeMixin):
     distances: TensorType['batch', 'atoms', 'atoms', int]
 
 
-def collate_molecules(batch, *, collate_fn_map=None) -> MoleculeDataBatch:
+def collate_molecules(batch, *, padding_left: bool = False, collate_fn_map=None) -> MoleculeDataBatch:
     """
     Prepares batches of molecules.
-
-    Note: Distances padded only on right side. Bottom side filled by 1. Required for MHA softmax nan preventing.
 
     :return: atoms, neighbors, distances.
     """
     atoms, neighbors, distances = [], [], []
 
     for a, n, d in batch:
-        atoms.append(a)
-        neighbors.append(n)
+        if padding_left:
+            atoms.append(a.flipud())
+            neighbors.append(n.flipud())
+        else:
+            atoms.append(a)
+            neighbors.append(n)
         distances.append(d)
 
     pa = pad_sequence(atoms, True)
     b, s = pa.shape
     tmp = zeros(b, s, s, dtype=int32)
-    tmp[:, :, 0] = 1  # prevent nan in MHA softmax on padding
+    # prevent nan in MHA softmax on padding
+    if padding_left:
+        tmp[:, :, -1] = 1
+    else:
+        tmp[:, :, 0] = 1
     for i, d in enumerate(distances):
         s = d.size(0)
-        tmp[i, :s, :s] = d
+        if padding_left:
+            tmp[i, -s:, -s:] = d
+        else:
+            tmp[i, :s, :s] = d
+    if padding_left:
+        return MoleculeDataBatch(pa.fliplr(), pad_sequence(neighbors, True).fliplr(), tmp)
     return MoleculeDataBatch(pa, pad_sequence(neighbors, True), tmp)
 
 

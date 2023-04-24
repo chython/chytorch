@@ -41,15 +41,16 @@ class MoleculeEncoder(Module):
     """
     Inspired by https://arxiv.org/pdf/2106.05234.pdf
     """
-    def __init__(self, max_neighbors: int = 14, max_distance: int = 10, shared_weights: bool = True,
+    def __init__(self, max_neighbors: int = 14, max_distance: int = 10,  max_tokens: int = 0,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
-                 dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5, norm_first: bool = False,
-                 post_norm: bool = False, zero_bias: bool = False, perturbation: float = 0.):
+                 shared_weights: bool = True, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5,
+                 norm_first: bool = False, post_norm: bool = False, zero_bias: bool = False, perturbation: float = 0.):
         """
         Molecule TransformerEncoder layer.
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.
+        :param max_tokens: number of non-atomic tokens.
         :param shared_weights: ALBERT-like encoder weights sharing.
         :param norm_first: do pre-normalization in encoder layers.
         :param post_norm: do normalization of output. Works only when norm_first=True.
@@ -57,8 +58,9 @@ class MoleculeEncoder(Module):
         :param perturbation: add perturbation to embedding (https://aclanthology.org/2021.naacl-main.460.pdf).
             Disabled by default
         """
+        assert perturbation >= 0, 'zero or positive perturbation expected'
         super().__init__()
-        self.atoms_encoder = Embedding(121, d_model, 0)
+        self.atoms_encoder = Embedding(121 + (max_tokens and max_tokens + 2), d_model, 0)
         self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0)
         self.distance_encoder = Embedding(max_distance + 3, nhead, 0)
 

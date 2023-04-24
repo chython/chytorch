@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -18,8 +18,11 @@
 #
 from .contrastive import *
 from .encoder import *
+from .mixer import *
+from .product import *
 
 
-__all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset',
-           'MoleculeDataPoint', 'ContrastiveDataPoint', 'MoleculeDataBatch', 'ContrastiveDataBatch',
-           'collate_molecules', 'contrastive_collate']
+__all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset', 'MoleculeMixerDataset',
+           'MoleculeProductDataset', 'MoleculeDataPoint', 'ContrastiveDataPoint', 'MoleculeMixerDataPoint',
+           'MoleculeDataBatch', 'ContrastiveDataBatch', 'MoleculeMixerDataBatch',
+           'collate_molecules', 'contrastive_collate', 'collate_mixed_molecules']

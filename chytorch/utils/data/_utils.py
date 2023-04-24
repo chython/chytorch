@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -16,13 +16,30 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from random import shuffle
 from torch import Size
-from typing import List, NamedTuple, NamedTupleMeta
+from torch.utils.data import Dataset
+from typing import List, NamedTuple, NamedTupleMeta, Sequence, TypeVar
 
 try:
     from torch.utils.data._utils.collate import default_collate_fn_map
 except ImportError:  # ad-hoc for pytorch<1.13
     default_collate_fn_map = {}
+
+element = TypeVar('element')
+
+
+def chained_collate(*collate_fns):
+    """
+    Collate batch of tuples with different data structures by different collate functions.
+    """
+    def w(batch):
+        sub_batches = [[] for _ in collate_fns]
+        for x in batch:
+            for y, s in zip(x, sub_batches):
+                s.append(y)
+        return [f(x) for x, f in zip(sub_batches, collate_fns)]
+    return w
 
 
 class SizedList(List):
@@ -33,6 +50,29 @@ class SizedList(List):
         super().__init__(data)
 
     def size(self, dim=None):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
+
+class ShuffledList(Dataset):
+    """
+    Returns randomly shuffled sequences
+    """
+    def __init__(self, data: Sequence[Sequence[element]]):
+        self.data = data
+
+    def __getitem__(self, item: int) -> List[element]:
+        x = list(self.data[item])
+        shuffle(x)
+        return x
+
+    def __len__(self):
+        return len(self.data)
+
+    def size(self, dim):
         if dim == 0:
             return len(self)
         elif dim is None:
@@ -68,4 +108,4 @@ class DataTypeMixin(metaclass=MultipleInheritanceNamedTupleMeta):
         return type(self)(*(x.cuda(*args, **kwargs) for x in self))
 
 
-__all__ = ['SizedList']
+__all__ = ['SizedList', 'ShuffledList', 'chained_collate']
