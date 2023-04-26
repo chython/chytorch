@@ -44,7 +44,8 @@ class MoleculeEncoder(Module):
     def __init__(self, max_neighbors: int = 14, max_distance: int = 10,  max_tokens: int = 0,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
                  shared_weights: bool = True, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5,
-                 norm_first: bool = False, post_norm: bool = False, zero_bias: bool = False, perturbation: float = 0.):
+                 norm_first: bool = False, post_norm: bool = False, zero_bias: bool = False, perturbation: float = 0.,
+                 positional_distance: int = 0):
         """
         Molecule TransformerEncoder layer.
 
@@ -57,12 +58,16 @@ class MoleculeEncoder(Module):
         :param zero_bias: use frozen zero bias of attention for non-reachable atoms.
         :param perturbation: add perturbation to embedding (https://aclanthology.org/2021.naacl-main.460.pdf).
             Disabled by default
+        :param positional_distance: ALIBI-like (but learnable) positional encoding threshold. Disabled by default.
         """
         assert perturbation >= 0, 'zero or positive perturbation expected'
+        if positional_distance:
+            assert positional_distance > 1, 'positional distance should be greater than 1 or disabled'
+            positional_distance -= 1
         super().__init__()
         self.atoms_encoder = Embedding(121 + (max_tokens and max_tokens + 2), d_model, 0)
         self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0)
-        self.distance_encoder = Embedding(max_distance + 3, nhead, 0)
+        self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead, 0)
 
         self.perturbation = perturbation and perturbation / sqrt(d_model)
         self.post_norm = post_norm
@@ -125,7 +130,7 @@ class MoleculeEncoder(Module):
         # cls token in neighbors coded by 0
         x = self.atoms_encoder(atoms) + self.neighbors_encoder(neighbors)
 
-        if self.perturbation:
+        if self.perturbation and self.training:
             x = x + empty_like(x).uniform_(-self.perturbation, self.perturbation)
 
         if intermediate_embeddings:
