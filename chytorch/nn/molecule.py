@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from math import inf, sqrt
+from math import inf
 from torch import no_grad, stack, ones, long, empty_like
 from torch.nn import Embedding, GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
@@ -61,15 +61,21 @@ class MoleculeEncoder(Module):
         :param positional_distance: ALIBI-like (but learnable) positional encoding threshold. Disabled by default.
         """
         assert perturbation >= 0, 'zero or positive perturbation expected'
+        super().__init__()
         if positional_distance:
             assert positional_distance > 1, 'positional distance should be greater than 1 or disabled'
+            self.positional_distance = positional_distance
             positional_distance -= 1
-        super().__init__()
+        else:
+            self.positional_distance = 0
         self.atoms_encoder = Embedding(121 + (max_tokens and max_tokens + 2), d_model, 0)
         self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0)
         self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead, 0)
 
-        self.perturbation = perturbation and perturbation / sqrt(d_model)
+        self.max_distance = max_distance
+        self.max_tokens = max_tokens
+        self.max_neighbors = max_neighbors
+        self.perturbation = perturbation
         self.post_norm = post_norm
         if post_norm:
             assert norm_first, 'post_norm requires norm_first'
@@ -88,13 +94,6 @@ class MoleculeEncoder(Module):
                 self.distance_encoder.weight[1].fill_(0)
                 self.distance_encoder.weight.register_hook(_hook)
         self._register_load_state_dict_pre_hook(_update)
-
-    @property
-    def max_distance(self):
-        """
-        Distance encoding cutoff
-        """
-        return self.distance_encoder.num_embeddings - 3
 
     def forward(self, batch: MoleculeDataBatch, /, *, need_embedding: bool = True, need_weights: bool = False,
                 averaged_weights: bool = False, intermediate_embeddings: bool = False) -> \

@@ -61,7 +61,7 @@ class MoleculeMixerDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], conditions: Sequence[Sequence[Hashable]],
                  *, max_distance: int = 10, max_neighbors: int = 14, add_cls: bool = True, unpack: bool = False,
                  dictionary: Dict[Hashable, int] = None, positional_distance: int = 0,
-                 max_sequence: Optional[int] = None):
+                 max_tokens: Optional[int] = None):
         """
         convert molecules and categorical conditions to tuple of:
             atoms, neighbors and distances tensors similar to molecule dataset.
@@ -76,7 +76,7 @@ class MoleculeMixerDataset(Dataset):
         :param dictionary: predefined conditions to embedding indices mapping
         :param positional_distance: conditions ALIBI-like (but learnable) positional encoding.
             Tokens longer than given value treated as equally far. Disabled by default.
-        :param max_sequence: maximal length of sequence in dataset
+        :param max_tokens: maximal length of sequence in dataset
         """
         assert len(molecules) == len(conditions), 'reactions and conditions counts mismatch'
 
@@ -86,10 +86,11 @@ class MoleculeMixerDataset(Dataset):
         self.max_neighbors = max_neighbors
         self.add_cls = add_cls
         self.unpack = unpack
+        self.positional_distance = positional_distance
 
         if dictionary is not None:
             self.dictionary = dictionary
-            assert max_sequence, 'max_sequence should be provided if an external dictionary is used'
+            assert max_tokens, 'max_tokens should be provided if an external dictionary is used'
         else:
             self.dictionary = dictionary = {}
             tmp = 0
@@ -100,18 +101,19 @@ class MoleculeMixerDataset(Dataset):
                     if x not in dictionary:
                         # first 123 reserved for atoms, cls(1), mlm(2), pad(0), sos(121), eos(122)
                         dictionary[x] = len(dictionary) + 123
-            if not max_sequence:
-                max_sequence = tmp
+            if not max_tokens:
+                max_tokens = tmp
             else:
-                assert max_sequence >= tmp, 'given max_sequence less than found in dataset'
+                assert max_tokens >= tmp, 'given max_tokens less than found in dataset'
 
+        self.max_tokens = max_tokens
         if positional_distance:
-            assert 1 < positional_distance <= max_sequence, 'positional_distance should in [2, max_sequence] range'
-            self._mask = clip(tril(arange(max_distance + max_sequence + 2, max_distance + 2, -1).unsqueeze_(0) -
-                                   arange(max_sequence, 0, -1).unsqueeze_(1)).to(int32),
+            assert 1 < positional_distance <= max_tokens, 'positional_distance should in [2, max_tokens] range'
+            self._mask = clip(tril(arange(max_distance + max_tokens + 2, max_distance + 2, -1).unsqueeze_(0) -
+                                   arange(max_tokens, 0, -1).unsqueeze_(1)).to(int32),
                               max=positional_distance + max_distance + 1).fill_diagonal_(1)
         else:
-            self._mask = tril(ones(max_sequence, max_sequence, dtype=int32))
+            self._mask = tril(ones(max_tokens, max_tokens, dtype=int32))
 
     def __getitem__(self, item: int) -> MoleculeMixerDataPoint:
         dictionary = self.dictionary
@@ -131,7 +133,7 @@ class MoleculeMixerDataset(Dataset):
             tmp[-lc1:, :-lc] = 1  # add SOS+conditions to atoms attention
             tmp[-lc:, -lc:] = self._mask[-lc:, -lc:]  # next token prediction mask for conditions
         else:
-            tmp[-1:] = 1  # add SOS to atoms attention
+            tmp[-1] = 1  # add SOS to atoms attention
         return MoleculeMixerDataPoint(atoms, neighbors, tmp, causal)
 
     def __len__(self):
