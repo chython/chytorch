@@ -58,27 +58,19 @@ class PostgresMapper(Dataset):
             self.__mapping = load(f)
 
     def __getitem__(self, item: int):
-        with self._connection.cursor() as cur:
-            cur.execute(f'SELECT {self.column} FROM {self.table} WHERE {self.index}={self._mapping[item]} LIMIT 1;')
-            return bytes(cur.fetchone()[0])
+        q = f'SELECT {self.column} FROM {self.table} WHERE {self.index}={self._mapping[item]} LIMIT 1;'
+        return bytes(self._execute(q)[0][0])
 
     def __getitems__(self, items: List[int]):
         mapping = self._mapping
         idx = [mapping[x] for x in items]
-        with self._connection.cursor() as cur:
-            q = ','.join(str(x) for x in idx)
-            cur.execute(f"SELECT {self.index}, {self.column} FROM {self.table} WHERE {self.index} IN ({q});")
-            data = dict(cur.fetchall())
-            return [bytes(data[x]) for x in idx]
+        q = ','.join(str(x) for x in idx)
+        q = f'SELECT {self.index}, {self.column} FROM {self.table} WHERE {self.index} IN ({q});'
+        data = dict(self._execute(q))
+        return [bytes(data[x]) for x in idx]
 
     def __len__(self):
-        try:
-            return len(self._mapping)
-        except AttributeError:
-            # temporary open db
-            with self._connection.cursor() as cur:
-                cur.execute(f'SELECT count({self.index}) FROM {self.table} WHERE {self.column} IS NOT NULL;')
-                return cur.fetchone()
+        return len(self._mapping)
 
     def size(self, dim):
         if dim == 0:
@@ -93,9 +85,8 @@ class PostgresMapper(Dataset):
             return self.__mapping
         except AttributeError:
             # build mapping
-            with self._connection.cursor() as cur:
-                cur.execute(f'SELECT {self.index} FROM {self.table} WHERE {self.column} IS NOT NULL ORDER BY {self.index};')  # noqa
-                self.__mapping = mapping = [x for x, in cur.fetchall()]
+            q = f'SELECT {self.index} FROM {self.table} WHERE {self.column} IS NOT NULL ORDER BY {self.index};'
+            self.__mapping = mapping = [x for x, in self._execute(q)]
             if (cache := self.cache) is not None:  # save to cache
                 if isinstance(cache, str):
                     cache = Path(cache)
@@ -103,15 +94,22 @@ class PostgresMapper(Dataset):
                     dump(mapping, f)
             return mapping
 
-    @property
-    def _connection(self):
-        try:
-            return self.__connection
-        except AttributeError:
-            from psycopg2 import connect
+    def _execute(self, query):
+        from psycopg2 import connect, OperationalError
 
-            self.__connection = db = connect(self.dsn)
-            return db
+        for _ in range(3):
+            try:
+                db = self.__connection
+            except AttributeError:
+                self.__connection = db = connect(self.dsn)
+
+            try:
+                with db.cursor() as cur:
+                    cur.execute(query)
+                    return cur.fetchall()
+            except OperationalError:
+                del self.__connection
+        raise IOError('connection died')
 
     def __del__(self):
         try:
