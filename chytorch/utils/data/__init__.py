@@ -19,6 +19,7 @@
 from .lmdb import *
 from .molecule import *
 from .pandas import *
+from .postgres import *
 from .product import *
 from .reaction import *
 from .sampler import *
@@ -32,7 +33,7 @@ __all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset', 
            'FakeReactionDataset', 'SMILESDataset', 'SMILESTokenizerDataset', 'MappedReactionDataset', 'ProductDataset',
            'StructureSampler', 'DistributedStructureSampler',
            'SizedList', 'ShuffledList', 'LMDBMapper', 'LMDBStructure', 'LMDBPickle', 'LMDBStruct', 'LMDBTensor',
-           'PandasStructureDataset', 'PandasPropertiesDataset',
+           'PandasStructureDataset', 'PandasPropertiesDataset', 'PostgresMapper',
            'collate_molecules', 'contrastive_collate', 'collate_mixed_molecules', 'collate_encoded_reactions',
            'collate_decoded_reactions', 'collate_permuted_reactions', 'collate_faked_reactions',
            'collate_mapped_reactions', 'collate_sequences', 'chained_collate']

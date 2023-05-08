@@ -46,9 +46,6 @@ class SizedList(List):
     """
     List with tensor-like size method.
     """
-    def __init__(self, data):
-        super().__init__(data)
-
     def size(self, dim=None):
         if dim == 0:
             return len(self)
