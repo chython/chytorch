@@ -16,10 +16,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from torch import stack
 from torch.nn import GELU, Module, ModuleList, LayerNorm, Dropout
 from torchtyping import TensorType
-from typing import Tuple, Union
 from ..molecule import MoleculeEncoder
 from ..transformer import DecoderLayer
 from ...utils.data import ReactionDecoderDataBatch
@@ -94,26 +92,12 @@ class ReactionDecoder(Module):
         """
         return self.molecule_encoder.max_distance
 
-    def forward(self, batch: ReactionDecoderDataBatch,
-                /, *, need_embedding: bool = True, need_weights: bool = False, averaged_weights: bool = False) -> \
-            Union[TensorType['batch', 'atoms', 'embedding'],
-                  TensorType['batch', 'atoms', 'atoms'],
-                  Tuple[TensorType['batch', 'atoms', 'embedding'],
-                        TensorType['batch', 'atoms', 'atoms']]]:
+    def forward(self, batch: ReactionDecoderDataBatch) -> TensorType['batch', 'atoms', 'embedding']:
         """
         Atoms, Neighbors, Distances - store merged reactants in odd and products molecules in even indices of batch.
         Distances - same as molecular encoder distances but batched diagonally.
          Used 0 for disabling sharing between molecules.
-
-        :param batch: input reactions
-        :param need_embedding: return atoms embeddings
-        :param need_weights: return attention weights
-        :param averaged_weights: return averaged attentions from each layer, otherwise only last layer
         """
-        if not need_weights:
-            assert not averaged_weights, 'averaging without need_weights'
-            assert need_embedding, 'at least weights or embeddings should be returned'
-
         atoms, neighbors, distances, r_mask, p_mask = batch
 
         n = atoms.size(1)
@@ -125,30 +109,11 @@ class ReactionDecoder(Module):
         rct = x[::2]  # reactants
         x = x[1::2]  # products
 
-        if averaged_weights:  # average attention weights from each layer
-            w = []
-            x, a = self.layers[0](x, rct, p_mask, r_mask, disable_self_attention=True, need_weights=True)
-            w.append(a)
-            for lr in self.layers[1:-1]:  # noqa
-                x, a = lr(x, rct, p_mask, r_mask, need_weights=True)
-                w.append(a)
-            x, a = self.layers[-1](x, rct, p_mask, r_mask, need_embedding=need_embedding, need_weights=True)
-            w.append(a)
-            w = stack(w, dim=-1).mean(-1)
-            if need_embedding:
-                return x, w
-            return w
-
         # skip SA on the first layer for products
         x, _ = self.layers[0](x, rct, p_mask, r_mask, disable_self_attention=True)
-        for lr in self.layers[1:-1]:  # noqa
+        for lr in self.layers[1:]:  # noqa
             x, _ = lr(x, rct, p_mask, r_mask)
-        x, a = self.layers[-1](x, rct, p_mask, r_mask, need_embedding=need_embedding, need_weights=need_weights)
-        if need_embedding:
-            if need_weights:
-                return x, a
-            return x
-        return a
+        return x
 
 
 __all__ = ['ReactionDecoder']

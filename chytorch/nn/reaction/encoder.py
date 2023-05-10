@@ -17,10 +17,9 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from math import inf
-from torch import zeros_like, float as t_float, stack
+from torch import zeros_like, float as t_float
 from torch.nn import Embedding, GELU, Module, ModuleList
 from torchtyping import TensorType
-from typing import Tuple, Union
 from ..molecule import MoleculeEncoder
 from ..transformer import EncoderLayer
 from ...utils.data import ReactionEncoderDataBatch
@@ -79,26 +78,12 @@ class ReactionEncoder(Module):
         """
         return self.molecule_encoder.max_distance
 
-    def forward(self, batch: ReactionEncoderDataBatch,
-                /, *, need_embedding: bool = True, need_weights: bool = False, averaged_weights: bool = False) -> \
-            Union[TensorType['batch', 'atoms', 'embedding'],
-                  TensorType['batch', 'atoms', 'atoms'],
-                  Tuple[TensorType['batch', 'atoms', 'embedding'],
-                        TensorType['batch', 'atoms', 'atoms']]]:
+    def forward(self, batch: ReactionEncoderDataBatch) -> TensorType['batch', 'atoms', 'embedding']:
         """
         Use 0 for padding. Roles should be coded by 2 for reactants, 3 for products and 1 for special cls token.
         Distances - same as molecular encoder distances but batched diagonally.
          Used 0 for disabling sharing between molecules.
-
-        :param batch: input reactions
-        :param need_embedding: return atoms embeddings
-        :param need_weights: return attention weights
-        :param averaged_weights: return averaged attentions from each layer, otherwise only last layer
         """
-        if not need_weights:
-            assert not averaged_weights, 'averaging without need_weights'
-            assert need_embedding, 'at least weights or embeddings should be returned'
-
         atoms, neighbors, distances, roles = batch
         n = atoms.size(1)
         d_mask = zeros_like(roles, dtype=t_float).masked_fill_(roles == 0, -inf).view(-1, 1, 1, n)  # BxN > Bx1x1xN >
@@ -109,25 +94,9 @@ class ReactionEncoder(Module):
         x = self.molecule_encoder((atoms, neighbors, distances)) * (roles > 1).unsqueeze_(-1)
         x = x + self.role_encoder(roles)
 
-        if averaged_weights:  # average attention weights from each layer
-            w = []
-            for lr in self.layers[:-1]:  # noqa
-                x, a = lr(x, d_mask, need_weights=True)
-                w.append(a)
-            x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=True)
-            w.append(a)
-            w = stack(w, dim=-1).mean(-1)
-            if need_embedding:
-                return x, w
-            return w
-        for lr in self.layers[:-1]:  # noqa
+        for lr in self.layers:
             x, _ = lr(x, d_mask)
-        x, a = self.layers[-1](x, d_mask, need_embedding=need_embedding, need_weights=need_weights)
-        if need_embedding:
-            if need_weights:
-                return x, a
-            return x
-        return a
+        return x
 
 
 __all__ = ['ReactionEncoder']
