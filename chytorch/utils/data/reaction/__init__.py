@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -16,10 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from .decoder import *
 from .encoder import *
-from .fake import *
-from .mapping import *
 from .permuted import *
 
 
@@ -28,13 +25,8 @@ ReactionDataset = ReactionEncoderDataset
 collate_reactions = collate_encoded_reactions
 
 
-__all__ = ['ReactionEncoderDataset', 'ReactionDecoderDataset', 'FakeReactionDataset', 'PermutedReactionDataset',
-           'MappedReactionDataset',
-           'ReactionEncoderDataPoint', 'ReactionDecoderDataPoint', 'FakedReactionDataPoint',
-           'PermutedReactionDataPoint', 'MappedReactionDataPoint',
-           'ReactionEncoderDataBatch', 'ReactionDecoderDataBatch', 'FakedReactionDataBatch',
-           'PermutedReactionDataBatch', 'MappedReactionDataBatch',
-           'collate_encoded_reactions', 'collate_decoded_reactions', 'collate_faked_reactions',
-           'collate_permuted_reactions', 'collate_mapped_reactions',
+__all__ = ['ReactionEncoderDataset', 'PermutedReactionDataset', 'ReactionLabelsDataset',
+           'ReactionEncoderDataPoint', 'ReactionEncoderDataBatch',
+           'collate_encoded_reactions',
            # reverse compatibility
            'ReactionDataset', 'collate_reactions']

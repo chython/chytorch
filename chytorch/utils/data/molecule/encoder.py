@@ -80,8 +80,7 @@ default_collate_fn_map[MoleculeDataPoint] = collate_molecules  # add auto_collat
 
 class MoleculeDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *, max_distance: int = 10,
-                 add_cls: bool = True, symmetric_cls: bool = True, disable_components_interaction: bool = False,
-                 max_neighbors: int = 14, unpack: bool = False, distance_cutoff=None):
+                 add_cls: bool = True, max_neighbors: int = 14, unpack: bool = False, distance_cutoff=None):
         """
         convert molecules to tuple of:
             atoms vector with atomic numbers + 2,
@@ -97,18 +96,13 @@ class MoleculeDataset(Dataset):
         :param molecules: molecules collection
         :param max_distance: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position
-        :param symmetric_cls: do bidirectional attention of cls to atoms and back
-        :param disable_components_interaction: treat components as isolated molecules
         :param max_neighbors: set neighbors count greater than cutoff to cutoff value
         :param unpack: unpack molecules
         """
-        assert add_cls or not symmetric_cls, 'add_cls should be True if symmetric_cls is True'
         self.molecules = molecules
         # distance_cutoff is deprecated
         self.max_distance = distance_cutoff if distance_cutoff is not None else max_distance
         self.add_cls = add_cls
-        self.symmetric_cls = symmetric_cls
-        self.disable_components_interaction = disable_components_interaction
         self.max_neighbors = max_neighbors
         self.unpack = unpack
 
@@ -134,12 +128,10 @@ class MoleculeDataset(Dataset):
             neighbors[i] = nb + 2
 
         sp = shortest_path(mol.adjacency_matrix(), method='FW', directed=False, unweighted=True) + 2
-        nan_to_num(sp, copy=False, posinf=(0 if self.disable_components_interaction else 1))
+        nan_to_num(sp, copy=False, posinf=1)
         minimum(sp, self.max_distance + 2, out=sp)
         if self.add_cls:
             tmp = ones((len(atoms), len(atoms)))
-            if not self.symmetric_cls:
-                tmp[1:, 0] = 0  # disable CLS to atom attention by padding trick
             tmp[1:, 1:] = sp
             sp = tmp
         return MoleculeDataPoint(atoms, neighbors, IntTensor(sp))

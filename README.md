@@ -86,10 +86,6 @@ Reactions include additional tensor with reaction role codes for each token.
 
 `chytorch.nn.Slicer` - do tensor slicing. Useful for transformer's CLS token extraction in `torch.nn.Sequence`.
 
-**Caching:**
-
-`chytorch.utils.cache.SequencedFileCache`, `chytorch.utils.cache.SequencedDBCache`, `chytorch.utils.cache.SequencedDtypeCompressedCache`, `chytorch.utils.cache.CycleDataLoader` - helpers for caching slow dataset generators output.
-
 **Data Wrappers:**
 
 In `chytorch.utils.data` module stored different data wrappers for simplifying ML workflows.
@@ -97,6 +93,7 @@ All wrappers have `torch.utils.data.Dataset` interface.
 
 * `SizedList` - list wrapper with `size()` method. Useful with `torch.utils.data.TensorDataset`. 
 * `SMILESDataset` - on-the-fly smiles to `chython.MoleculeContainer` or `chython.ReactionContainer` parser.
-* `LMDBMapper`, `LMDBStructure`, `LMDBPickle`, `LMDBStruct`, `LMDBTensor` - data extractors from LMDB KV storage.
-* `PandasStructureDataset`, `PandasPropertiesDataset` - wrappers on top of `pandas.DataFrame`.
+* `LMDBMapper` - LMDB KV storage to dataset mapper.
+* `PostgresMapper` - Postgres DB table to dataset mapper.
 * `SMILESTokenizerDataset` - on-the-fly generator of tokenized SMILES.
+* `TensorUnpack`, `StructUnpack`, `PickleUnpack` - bytes to tensor/object unpackers

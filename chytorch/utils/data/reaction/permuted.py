@@ -18,13 +18,12 @@
 #
 from chython import ReactionContainer
 from chython.periodictable import Element
+from itertools import chain
 from random import random, choice
-from torch import LongTensor, cat, Size
+from torch import IntTensor, Size
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Union
-from .decoder import ReactionDecoderDataset, collate_decoded_reactions
-from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
 # isometric atoms
@@ -81,75 +80,25 @@ isosteres = {
 isosteres = {(*bs, rp): [x for x in rps if x[0] != rp] for bs, rps in isosteres.items() for rp, _ in rps}
 
 
-class PermutedReactionDataPoint(NamedTuple):
-    reactants_atoms: TensorType['atoms', int]
-    reactants_neighbors: TensorType['atoms', int]
-    reactants_distances: TensorType['atoms', 'atoms', int]
-    products_atoms: TensorType['atoms', int]
-    products_neighbors: TensorType['atoms', int]
-    products_distances: TensorType['atoms', 'atoms', int]
-    reactants_mask: TensorType['atoms', float]
-    products_mask: TensorType['atoms', float]
-    replacement: TensorType['atoms', int]
-
-
-class PermutedReactionDataBatch(NamedTuple, DataTypeMixin):
-    atoms: TensorType['batch*2', 'atoms', int]
-    neighbors: TensorType['batch*2', 'atoms', int]
-    distances: TensorType['batch*2', 'atoms', 'atoms', int]
-    reactants_mask: TensorType['batch', 'atoms', float]
-    products_mask: TensorType['batch', 'atoms', float]
-    replacement: TensorType['batch*atoms', int]
-
-
-def collate_permuted_reactions(batch, *, collate_fn_map=None) -> PermutedReactionDataBatch:
-    """
-    Prepares batches of permuted reactions.
-
-    :return: atoms, neighbors, distances, masks, and atoms replacement legend.
-
-    Note: padding not included into legend.
-    """
-    return PermutedReactionDataBatch(*collate_decoded_reactions([x[:-1] for x in batch]), cat([x[-1] for x in batch]))
-
-
-default_collate_fn_map[PermutedReactionDataPoint] = collate_permuted_reactions  # add auto_collation to the DataLoader
-
-
 class PermutedReactionDataset(Dataset):
-    def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, rate: float = .15,
-                 max_distance: int = 10, add_cls: bool = True, add_molecule_cls: bool = True,
-                 symmetric_cls: bool = True, disable_components_interaction: bool = True,
-                 hide_molecule_cls: bool = False, max_neighbors: int = 14, unpack: bool = False):
+    def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *,
+                 rate: float = .15, unpack: bool = False):
         """
-        Prepare reactions with randomly permuted "organic" atoms in products.
+        Prepare reactions with randomly permuted "organic" atoms.
 
         :param rate: probability of replacement
-
-        See ReactionDecoderDataset for other params description.
+        :param unpack: unpack reactions
         """
-        self.rate = rate
         self.reactions = reactions
-        self.max_distance = max_distance
-        self.add_cls = add_cls
-        self.add_molecule_cls = add_molecule_cls
-        self.symmetric_cls = symmetric_cls
-        self.disable_components_interaction = disable_components_interaction
-        self.hide_molecule_cls = hide_molecule_cls
-        self.max_neighbors = max_neighbors
+        self.rate = rate
         self.unpack = unpack
 
-    def __getitem__(self, item: int) -> PermutedReactionDataPoint:
+    def __getitem__(self, item: int) -> ReactionContainer:
         r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item].copy()
-
-        labels = [2] if self.add_cls else []
-        for m in r.products:
+        for m in chain(r.products, r.reactants):
             bonds = m._bonds  # noqa
             hgs = m._hydrogens  # noqa
-            if self.add_molecule_cls:
-                labels.append(1)
             for n, a in m.atoms():
-                labels.append(a.atomic_number + 2)  # True atom
                 k = sorted(x.order for x in bonds[n].values())
                 k.append(a.atomic_symbol)
                 if (p := isosteres.get(tuple(k))) and random() < self.rate:
@@ -157,12 +106,7 @@ class PermutedReactionDataset(Dataset):
                     s, h = choice(p)
                     a.__class__ = Element.from_symbol(s)
                     hgs[n] = h
-        return PermutedReactionDataPoint(
-            *ReactionDecoderDataset((r,), max_distance=self.max_distance, add_cls=self.add_cls,
-                                    add_molecule_cls=self.add_molecule_cls, symmetric_cls=self.symmetric_cls,
-                                    disable_components_interaction=self.disable_components_interaction,
-                                    hide_molecule_cls=self.hide_molecule_cls, max_neighbors=self.max_neighbors)[0],
-            LongTensor(labels))
+        return r
 
     def __len__(self):
         return len(self.reactions)
@@ -175,5 +119,36 @@ class PermutedReactionDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['PermutedReactionDataset', 'PermutedReactionDataPoint', 'PermutedReactionDataBatch',
-           'collate_permuted_reactions']
+class ReactionLabelsDataset(Dataset):
+    def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *,
+                 add_cls: bool = True, unpack: bool = False):
+        """
+        Return atoms' tokens of reactions.
+
+        :param add_cls: add special token at first position
+        :param unpack: unpack reactions
+        """
+        self.reactions = reactions
+        self.add_cls = add_cls
+        self.unpack = unpack
+
+    def __getitem__(self, item: int) -> TensorType['atoms', int]:
+        r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item]
+        labels = [1] if self.add_cls else []
+        for m in chain(r.products, r.reactants):
+            for _, a in m.atoms():
+                labels.append(a.atomic_number + 2)
+        return IntTensor(labels)
+
+    def __len__(self):
+        return len(self.reactions)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
+
+__all__ = ['PermutedReactionDataset', 'ReactionLabelsDataset']

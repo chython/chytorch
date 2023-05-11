@@ -18,22 +18,20 @@
 #
 from .lmdb import *
 from .molecule import *
-from .pandas import *
 from .postgres import *
 from .product import *
 from .reaction import *
 from .sampler import *
 from .smiles import *
 from .tokenizer import *
+from .unpack import *
 from ._utils import *
 
 
 __all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset', 'MoleculeMixerDataset',
-           'MoleculeProductDataset', 'ReactionEncoderDataset', 'ReactionDecoderDataset',  'PermutedReactionDataset',
-           'FakeReactionDataset', 'SMILESDataset', 'SMILESTokenizerDataset', 'MappedReactionDataset', 'ProductDataset',
+           'MoleculeProductDataset', 'ReactionEncoderDataset', 'PermutedReactionDataset', 'ReactionLabelsDataset',
+           'SMILESDataset', 'SMILESTokenizerDataset', 'ProductDataset',
            'StructureSampler', 'DistributedStructureSampler',
-           'SizedList', 'ShuffledList', 'LMDBMapper', 'LMDBStructure', 'LMDBPickle', 'LMDBStruct', 'LMDBTensor',
-           'PandasStructureDataset', 'PandasPropertiesDataset', 'PostgresMapper',
+           'SizedList', 'ShuffledList', 'LMDBMapper', 'PostgresMapper', 'PickleUnpack', 'StructUnpack', 'TensorUnpack',
            'collate_molecules', 'contrastive_collate', 'collate_mixed_molecules', 'collate_encoded_reactions',
-           'collate_decoded_reactions', 'collate_permuted_reactions', 'collate_faked_reactions',
-           'collate_mapped_reactions', 'collate_sequences', 'chained_collate']
+           'collate_sequences', 'chained_collate']

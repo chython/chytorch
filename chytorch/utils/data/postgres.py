@@ -57,11 +57,11 @@ class PostgresMapper(Dataset):
         with cache.open('rb') as f:
             self.__mapping = load(f)
 
-    def __getitem__(self, item: int):
+    def __getitem__(self, item: int) -> bytes:
         q = f'SELECT {self.column} FROM {self.table} WHERE {self.index}={self._mapping[item]} LIMIT 1;'
         return bytes(self._execute(q)[0][0])
 
-    def __getitems__(self, items: List[int]):
+    def __getitems__(self, items: List[int]) -> List[bytes]:
         mapping = self._mapping
         idx = [mapping[x] for x in items]
         q = ','.join(str(x) for x in idx)

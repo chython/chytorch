@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from chython import MoleculeContainer, ReactionContainer
+from chython import MoleculeContainer
 from collections import defaultdict
 from functools import cached_property
 from itertools import chain, islice
@@ -25,55 +25,28 @@ from pickle import load, dump
 from torch import Generator, randperm
 from torch.utils.data import DistributedSampler, Sampler
 from typing import Optional, Union
-from .molecule import MoleculeDataset, ContrastiveMethylDataset
-from .reaction import ReactionEncoderDataset, ReactionDecoderDataset, PermutedReactionDataset
+from .molecule import MoleculeDataset
 
 
 class Mixin:
     def __init__(self, cache, *args, **kwargs):
+        if not isinstance(self.dataset, MoleculeDataset):
+            raise TypeError('Unsupported Dataset')
         if cache is not None:
             if isinstance(cache, str):
                 cache = Path(cache)
             if cache.exists():
-                if not isinstance(self.dataset, (MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
-                                                 ReactionDecoderDataset, PermutedReactionDataset)):
-                    raise TypeError('Unsupported Dataset')
                 # load existing cache
                 with cache.open('rb') as f:
                     self.sizes = load(f)
                 super().__init__(*args, **kwargs)
                 return
 
-        if isinstance(self.dataset, (MoleculeDataset, ContrastiveMethylDataset)):
-            if self.dataset.unpack:
-                # 12 bit - atoms count
-                self.sizes = [MoleculeContainer.pack_len(m) for m in self.dataset.molecules]
-            else:
-                self.sizes = [len(m) for m in self.dataset.molecules]
-        elif isinstance(self.dataset, ReactionEncoderDataset):
-            x = int(self.dataset.add_molecule_cls)
-            if self.dataset.unpack:
-                self.sizes = sizes = []
-                for r in self.dataset.reactions:
-                    rs, _, ps = ReactionContainer.pack_len(r)
-                    sizes.append(sum(m + x for m in rs) + sum(m + x for m in ps))
-            else:
-                self.sizes = [sum(len(m) + x for m in r.reactants) + sum(len(m) + x for m in r.products)
-                              for r in self.dataset.reactions]
-        elif isinstance(self.dataset, (ReactionDecoderDataset, PermutedReactionDataset)):
-            x = int(self.dataset.add_molecule_cls)
-            y = int(self.dataset.add_cls)
-            if self.dataset.unpack:
-                self.sizes = sizes = []
-                for r in self.dataset.reactions:
-                    rs, _, ps = ReactionContainer.pack_len(r)
-                    sizes.append(max(sum(m + x for m in rs), sum(m + x for m in ps) + y))
-            else:
-                self.sizes = [max(sum(len(m) + x for m in r.reactants),
-                                  sum(len(m) + x for m in r.products) + y)
-                              for r in self.dataset.reactions]
+        if self.dataset.unpack:
+            # 12 bit - atoms count
+            self.sizes = [MoleculeContainer.pack_len(m) for m in self.dataset.molecules]
         else:
-            raise TypeError('Unsupported Dataset')
+            self.sizes = [len(m) for m in self.dataset.molecules]
 
         if cache is not None:
             # save cache
@@ -120,12 +93,10 @@ class Mixin:
 
 
 class StructureSampler(Mixin, Sampler):
-    def __init__(self, dataset: Union[MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
-                                      ReactionDecoderDataset, PermutedReactionDataset],
-                 batch_size: int, shuffle: bool = True, seed: int = 0, *,
+    def __init__(self, dataset: MoleculeDataset, batch_size: int, shuffle: bool = True, seed: int = 0, *,
                  cache: Union[Path, str, None] = None):
         """
-        Sample molecules or reactions locally grouped by size to reduce idle calculations on paddings.
+        Sample molecules locally grouped by size to reduce idle calculations on paddings.
 
         Example:
          [3, 4, 3, 3, 4, 5, 4] - sizes of molecules in dataset
@@ -157,9 +128,7 @@ class StructureSampler(Mixin, Sampler):
 
 
 class DistributedStructureSampler(Mixin, DistributedSampler):
-    def __init__(self, dataset: Union[MoleculeDataset, ContrastiveMethylDataset, ReactionEncoderDataset,
-                                      ReactionDecoderDataset, PermutedReactionDataset],
-                 batch_size: int, num_replicas: Optional[int] = None,
+    def __init__(self, dataset: MoleculeDataset, batch_size: int, num_replicas: Optional[int] = None,
                  rank: Optional[int] = None, shuffle: bool = True, seed: int = 0, *,
                  cache: Union[Path, str, None] = None):
         """

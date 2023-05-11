@@ -27,8 +27,6 @@ class LMDBMapper(Dataset):
     """
     Map LMDB key-value storage to the Sequence Dataset of bytestrings.
     """
-    __slots__ = ('db', 'cache', '_db', '_tr', '_mapping')
-
     def __init__(self, db: str, *, cache: Union[Path, str, None] = None):
         """
         Note: mapper internally uses python list for index to bytes-key mapping and can be huge on big datasets.
@@ -49,7 +47,7 @@ class LMDBMapper(Dataset):
         with cache.open('rb') as f:
             self._mapping = load(f)
 
-    def __getitem__(self, item: int):
+    def __getitem__(self, item: int) -> bytes:
         try:
             tr = self._tr
         except AttributeError:

@@ -122,7 +122,7 @@ class MoleculeMixerDataset(Dataset):
         lc1 = lc + 1  # +SOS
 
         mol = MoleculeDataset(self.molecules, max_distance=self.max_distance, max_neighbors=self.max_neighbors,
-                              add_cls=self.add_cls, symmetric_cls=self.add_cls, unpack=self.unpack)[item]
+                              add_cls=self.add_cls, unpack=self.unpack)[item]
 
         atoms = cat([mol.atoms, IntTensor([121]), conditions])  # SOS
         causal = cat([mol.atoms, conditions, IntTensor([122])])  # EOS
