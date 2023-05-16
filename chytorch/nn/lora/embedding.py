@@ -71,8 +71,10 @@ class Embedding(tEmbedding):
 
     def extra_repr(self) -> str:
         r = super().extra_repr()
+        if self.neg_inf_idx is not None:
+            r += f', neg_inf_idx={self.neg_inf_idx}'
         if self.lora_r:
-            return  r + f', lora_r={self.lora_r}, lora_alpha={self.lora_alpha}'
+            r += f', lora_r={self.lora_r}, lora_alpha={self.lora_alpha}'
         return r
 
 
