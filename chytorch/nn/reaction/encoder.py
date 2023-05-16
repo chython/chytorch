@@ -20,8 +20,8 @@ from math import inf
 from torch import zeros_like, float as t_float
 from torch.nn import Embedding, GELU, Module, ModuleList
 from torchtyping import TensorType
+from ..lora import EncoderLayer
 from ..molecule import MoleculeEncoder
-from ..transformer import EncoderLayer
 from ...utils.data import ReactionEncoderDataBatch
 
 

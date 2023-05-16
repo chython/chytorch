@@ -16,18 +16,13 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from math import inf
-from torch import no_grad, ones, long, empty_like
-from torch.nn import Embedding, GELU, Module, ModuleList, LayerNorm
+from torch import empty_like
+from torch.nn import GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
 from typing import Tuple, Union, List
 from warnings import warn
-from .transformer import EncoderLayer
+from .lora import Embedding, EncoderLayer
 from ..utils.data import MoleculeDataBatch
-
-
-def _hook(x):
-    return x.index_fill(0, ones(1, dtype=long, device=x.device), 0)
 
 
 def _update(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
@@ -45,7 +40,7 @@ class MoleculeEncoder(Module):
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
                  shared_weights: bool = True, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5,
                  norm_first: bool = False, post_norm: bool = False, zero_bias: bool = False, perturbation: float = 0.,
-                 positional_distance: int = 0):
+                 positional_distance: int = 0, lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
         Molecule TransformerEncoder layer.
 
@@ -59,6 +54,9 @@ class MoleculeEncoder(Module):
         :param perturbation: add perturbation to embedding (https://aclanthology.org/2021.naacl-main.460.pdf).
             Disabled by default
         :param positional_distance: ALIBI-like (but learnable) positional encoding threshold. Disabled by default.
+        :param lora_r: LoRA factorization dimension size in encoder embeddings. Disabled by default.
+        :param lora_alpha: LoRA scaling factor.
+        :param lora_dropout: LoRA input dropout.
         """
         assert perturbation >= 0, 'zero or positive perturbation expected'
         super().__init__()
@@ -68,9 +66,11 @@ class MoleculeEncoder(Module):
             positional_distance -= 1
         else:
             self.positional_distance = 0
-        self.atoms_encoder = Embedding(121 + (max_tokens and max_tokens + 2), d_model, 0)
-        self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0)
-        self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead, 0)
+        self.atoms_encoder = Embedding(121 + (max_tokens and max_tokens + 2), d_model, 0,
+                                       lora_r=lora_r, lora_alpha=lora_alpha)
+        self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
+        self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead, int(zero_bias) or None,
+                                          neg_inf_idx=0, lora_r=lora_r, lora_alpha=lora_alpha)
 
         self.max_distance = max_distance
         self.max_tokens = max_tokens
@@ -82,17 +82,13 @@ class MoleculeEncoder(Module):
             self.norm = LayerNorm(d_model, layer_norm_eps)
 
         if shared_weights:
-            self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, norm_first)
+            self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, norm_first,
+                                      lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
             self.layers = [self.layer] * num_layers
         else:
             self.layers = ModuleList(EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation,
-                                                  layer_norm_eps, norm_first) for _ in range(num_layers))
-
-        with no_grad():  # trick to disable padding attention
-            self.distance_encoder.weight[0].fill_(-inf)
-            if zero_bias:
-                self.distance_encoder.weight[1].fill_(0)
-                self.distance_encoder.weight.register_hook(_hook)
+                                                  layer_norm_eps, norm_first, lora_r=lora_r, lora_alpha=lora_alpha,
+                                                  lora_dropout=lora_dropout) for _ in range(num_layers))
         self._register_load_state_dict_pre_hook(_update)
 
     def forward(self, batch: MoleculeDataBatch, /, *, intermediate_embeddings: bool = False) -> \
@@ -133,6 +129,16 @@ class MoleculeEncoder(Module):
         if intermediate_embeddings:
             return x, embeddings
         return x
+
+    def merge_lora(self):
+        """
+        Transform LoRA layers to normal
+        """
+        self.atoms_encoder.merge_lora()
+        self.neighbors_encoder.merge_lora()
+        self.distance_encoder.merge_lora()
+        for layer in self.layers:
+            layer.merge_lora()
 
     @property
     def centrality_encoder(self):
