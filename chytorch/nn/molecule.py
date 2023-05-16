@@ -69,8 +69,8 @@ class MoleculeEncoder(Module):
         self.atoms_encoder = Embedding(121 + (max_tokens and max_tokens + 2), d_model, 0,
                                        lora_r=lora_r, lora_alpha=lora_alpha)
         self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
-        self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead, int(zero_bias) or None,
-                                          neg_inf_idx=0, lora_r=lora_r, lora_alpha=lora_alpha)
+        self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead,
+                                          int(zero_bias) or None, neg_inf_idx=0)
 
         self.max_distance = max_distance
         self.max_tokens = max_tokens
