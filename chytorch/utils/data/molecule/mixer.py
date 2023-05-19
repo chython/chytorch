@@ -61,22 +61,25 @@ class MoleculeMixerDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], conditions: Sequence[Sequence[Hashable]],
                  *, max_distance: int = 10, max_neighbors: int = 14, add_cls: bool = True, unpack: bool = False,
                  dictionary: Dict[Hashable, int] = None, positional_distance: int = 0,
-                 max_tokens: Optional[int] = None):
+                 max_tokens: Optional[int] = None, auto_eos: bool = True):
         """
         convert molecules and categorical conditions to tuple of:
             atoms, neighbors and distances tensors similar to molecule dataset.
              distances - merged molecular distances matrices filled by zero for isolating attention.
              categorical data coded in atoms vector with causal masking in distances equal to 1.
 
+        Note: Dataset automatically adds SOS token.
+
         :param molecules: molecules collection
         :param conditions: conditions collection
         :param max_distance: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position
         :param max_neighbors: set neighbors count greater than cutoff to cutoff value
-        :param dictionary: predefined conditions to embedding indices mapping
+        :param dictionary: predefined tokens to embedding indices mapping
         :param positional_distance: conditions ALIBI-like (but learnable) positional encoding.
             Tokens longer than given value treated as equally far. Disabled by default.
-        :param max_tokens: maximal length of sequence in dataset
+        :param max_tokens: maximal length of sequence in dataset including SOS and EOS or other special tokens
+        :param auto_eos: automatically add EOS token.
         """
         assert len(molecules) == len(conditions), 'reactions and conditions counts mismatch'
 
@@ -87,6 +90,7 @@ class MoleculeMixerDataset(Dataset):
         self.add_cls = add_cls
         self.unpack = unpack
         self.positional_distance = positional_distance
+        self.auto_eos = auto_eos
 
         if dictionary is not None:
             self.dictionary = dictionary
@@ -99,12 +103,12 @@ class MoleculeMixerDataset(Dataset):
                     tmp = len(c)
                 for x in c:
                     if x not in dictionary:
-                        # first 123 reserved for atoms, cls(1), mlm(2), pad(0), sos(121), eos(122)
-                        dictionary[x] = len(dictionary) + 123
+                        # first 122 reserved for atoms, cls(1), mlm(2), pad(0), sos(121), if auto-eos: eos(122)
+                        dictionary[x] = len(dictionary) + 122 + auto_eos
             if not max_tokens:
-                max_tokens = tmp
+                max_tokens = tmp + 1 + auto_eos  # +SOS+EOS?
             else:
-                assert max_tokens >= tmp, 'given max_tokens less than found in dataset'
+                assert max_tokens >= tmp + 1 + auto_eos, 'given max_tokens less than found in dataset'
 
         self.max_tokens = max_tokens
         if positional_distance:
@@ -117,23 +121,39 @@ class MoleculeMixerDataset(Dataset):
 
     def __getitem__(self, item: int) -> MoleculeMixerDataPoint:
         dictionary = self.dictionary
-        conditions = IntTensor([dictionary[x] for x in self.conditions[item]])
-        lc = len(conditions)
-        lc1 = lc + 1  # +SOS
+        conditions = [dictionary[x] for x in self.conditions[item]]
 
         mol = MoleculeDataset(self.molecules, max_distance=self.max_distance, max_neighbors=self.max_neighbors,
                               add_cls=self.add_cls, unpack=self.unpack)[item]
+        size = len(mol.atoms)
+        if conditions:
+            c = len(conditions) + self.auto_eos
+            sc = size + c
+            cm = 1 - c
+            neighbors = cat([mol.neighbors, zeros(c, dtype=int32)])
 
-        atoms = cat([mol.atoms, IntTensor([121]), conditions])  # SOS
-        causal = cat([mol.atoms, conditions, IntTensor([122])])  # EOS
-        neighbors = cat([mol.neighbors, zeros(lc1, dtype=int32)])  # disable conditions centrality
-        tmp = zeros(len(atoms), len(atoms), dtype=int32)
-        tmp[:-lc1, :-lc1] = mol.distances
-        if lc:
-            tmp[-lc1:, :-lc] = 1  # add SOS+conditions to atoms attention
-            tmp[-lc:, -lc:] = self._mask[-lc:, -lc:]  # next token prediction mask for conditions
+            # fill distance matrix
+            tmp = zeros(sc, sc, dtype=int32)
+            tmp[size:, :size + 1] = 1  # add SOS to atoms attention
+            if cm:
+                tmp[cm:, cm:] = self._mask[cm:, cm:]  # next token prediction mask for conditions
+
+            conditions = IntTensor(conditions)
+            if self.auto_eos:
+                atoms = cat([mol.atoms, IntTensor([121]), conditions])  # SOS
+                causal = cat([mol.atoms, conditions, IntTensor([122])])  # EOS
+            else:
+                atoms = cat([mol.atoms, IntTensor([121]), conditions[:-1]])  # SOS
+                causal = cat([mol.atoms, conditions])
         else:
+            z = zeros(1, dtype=int32)
+            atoms = cat([mol.atoms, IntTensor([121])])  # SOS
+            causal = cat([mol.atoms, z])
+            neighbors = cat([mol.neighbors, z])
+            tmp = zeros(size + 1, size + 1, dtype=int32)
             tmp[-1] = 1  # add SOS to atoms attention
+
+        tmp[:size, :size] = mol.distances
         return MoleculeMixerDataPoint(atoms, neighbors, tmp, causal)
 
     def __len__(self):

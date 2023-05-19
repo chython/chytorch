@@ -46,7 +46,7 @@ class MoleculeEncoder(Module):
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.
-        :param max_tokens: number of non-atomic tokens.
+        :param max_tokens: number of non-atomic tokens including SOS, EOS.
         :param shared_weights: ALBERT-like encoder weights sharing.
         :param norm_first: do pre-normalization in encoder layers.
         :param post_norm: do normalization of output. Works only when norm_first=True.
@@ -66,8 +66,7 @@ class MoleculeEncoder(Module):
             positional_distance -= 1
         else:
             self.positional_distance = 0
-        self.atoms_encoder = Embedding(121 + (max_tokens and max_tokens + 2), d_model, 0,
-                                       lora_r=lora_r, lora_alpha=lora_alpha)
+        self.atoms_encoder = Embedding(121 + max_tokens, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
         self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
         self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead,
                                           int(zero_bias) or None, neg_inf_idx=0)
