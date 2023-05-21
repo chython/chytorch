@@ -22,7 +22,7 @@ from .mixer import *
 from .product import *
 
 
-__all__ = ['MoleculeDataset', 'ContrastiveDataset', 'ContrastiveMethylDataset', 'MoleculeMixerDataset',
-           'MoleculeProductDataset', 'MoleculeDataPoint', 'ContrastiveDataPoint', 'MoleculeMixerDataPoint',
-           'MoleculeDataBatch', 'ContrastiveDataBatch', 'MoleculeMixerDataBatch',
-           'collate_molecules', 'contrastive_collate', 'collate_mixed_molecules']
+__all__ = ['MoleculeDataset', 'ContrastiveMethylDataset', 'MoleculeMixerDataset',
+           'MoleculeProductDataset', 'MoleculeDataPoint', 'ContrastiveMethylDataPoint', 'MoleculeMixerDataPoint',
+           'MoleculeDataBatch', 'ContrastiveMethylDataBatch', 'MoleculeMixerDataBatch',
+           'collate_molecules', 'contrastive_methyl_collate', 'collate_mixed_molecules']

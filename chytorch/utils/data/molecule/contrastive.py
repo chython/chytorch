@@ -18,26 +18,25 @@
 #
 from chython import MoleculeContainer
 from chython.periodictable import C
-from math import sqrt
 from random import choice, random
 from torch import Size
 from torch.utils.data import Dataset
-from typing import Union, List, Sequence
+from typing import Union, Sequence
 from .encoder import MoleculeDataset, MoleculeDataPoint, MoleculeDataBatch, collate_molecules
 from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
-class ContrastiveDataPoint(NamedTuple):
+class ContrastiveMethylDataPoint(NamedTuple):
     first: MoleculeDataPoint
     second: MoleculeDataPoint
 
 
-class ContrastiveDataBatch(NamedTuple, DataTypeMixin):
+class ContrastiveMethylDataBatch(NamedTuple, DataTypeMixin):
     first: MoleculeDataBatch
     second: MoleculeDataBatch
 
 
-def contrastive_collate(batch, *, collate_fn_map=None) -> ContrastiveDataBatch:
+def contrastive_methyl_collate(batch, *, collate_fn_map=None) -> ContrastiveMethylDataBatch:
     """
     Prepares batches of contrastive molecules
     """
@@ -45,78 +44,14 @@ def contrastive_collate(batch, *, collate_fn_map=None) -> ContrastiveDataBatch:
     for f, s in batch:
         first.append(f)
         second.append(s)
-    return ContrastiveDataBatch(collate_molecules(first), collate_molecules(second))
+    return ContrastiveMethylDataBatch(collate_molecules(first), collate_molecules(second))
 
 
-default_collate_fn_map[ContrastiveDataPoint] = contrastive_collate  # add auto_collation to the DataLoader
-
-
-class ContrastiveDataset(Dataset):
-    def __init__(self, molecules: Sequence[List[Union[bytes, MoleculeContainer]]], *, max_distance: int = 10,
-                 add_cls: bool = True, max_neighbors: int = 14, unpack: bool = False):
-        """
-        Prepare pairs of "similar" molecules from predefined list of groups.
-        For multiple similar molecules this dataset enumerate all possible pairs.
-        For single element in list molecule returned twice.
-
-        :param molecules: Sequence of lists of similar (by any means) molecules.
-
-        See MoleculeDataset for other params description.
-        """
-        self.molecules = molecules
-        self.max_distance = max_distance
-        self.add_cls = add_cls
-        self.max_neighbors = max_neighbors
-        self.unpack = unpack
-
-        self.total = total = []
-        for i, x in enumerate(molecules):
-            if (n := len(x)) <= 2:  # unique mol
-                total.append((i, 0))
-            else:
-                total.extend((i, x) for x in range(n * (n - 1) // 2))
-
-    def __getitem__(self, item) -> ContrastiveDataPoint:
-        i, p = self.total[item]
-        mols = self.molecules[i]
-        if (n := len(mols)) == 1:  # no pairs
-            m = MoleculeDataset(mols, max_distance=self.max_distance, max_neighbors=self.max_neighbors,
-                                add_cls=self.add_cls, unpack=self.unpack)[0]
-            return ContrastiveDataPoint(m, m)
-        elif n == 2:
-            m1, m2 = mols
-        elif p < n - 1:
-            m1 = mols[0]
-            m2 = mols[p + 1]
-        else:
-            # Andrey Gedich suggestion
-            # https://stackoverflow.com/questions/27086195/linear-index-upper-triangular-matrix
-            nd = n - 1
-            m1 = n - 2 - int(sqrt(4 * n * nd - 8 * p - 7) / 2 - .5)
-            m2 = m1 + p + 1 - n * nd // 2 + (n - m1) * (nd - m1) // 2
-            m1 = mols[m1]
-            m2 = mols[m2]
-
-        ms = MoleculeDataset([m1, m2], max_distance=self.max_distance, add_cls=self.add_cls,
-                             max_neighbors=self.max_neighbors, unpack=self.unpack)
-        return ContrastiveDataPoint(ms[0], ms[1])
-
-    def __len__(self):
-        """
-        Number of possible pairs
-        """
-        return len(self.total)
-
-    def size(self, dim):
-        if dim == 0:
-            return len(self)
-        elif dim is None:
-            return Size((len(self),))
-        raise IndexError
+default_collate_fn_map[ContrastiveMethylDataPoint] = contrastive_methyl_collate  # add auto_collation to the DataLoader
 
 
 class ContrastiveMethylDataset(Dataset):
-    def __init__(self, molecules: List[Union[bytes, MoleculeContainer]], *, rate: float = .15,
+    def __init__(self, molecules: Sequence[Union[bytes, MoleculeContainer]], *, rate: float = .15,
                  max_distance: int = 10, add_cls: bool = True, max_neighbors: int = 14, unpack: bool = False):
         """
         Prepare pairs of "similar" molecules.
@@ -134,7 +69,7 @@ class ContrastiveMethylDataset(Dataset):
         self.max_neighbors = max_neighbors
         self.unpack = unpack
 
-    def __getitem__(self, item) -> ContrastiveDataPoint:
+    def __getitem__(self, item) -> ContrastiveMethylDataPoint:
         m1 = MoleculeContainer.unpack(self.molecules[item]) if self.unpack else self.molecules[item]
         m2 = m1.copy()
         hgs = m2._hydrogens  # noqa
@@ -157,7 +92,7 @@ class ContrastiveMethylDataset(Dataset):
             hgs[m] = 3  # CH3
         ms = MoleculeDataset([m1, m2], max_distance=self.max_distance, add_cls=self.add_cls,
                              max_neighbors=self.max_neighbors)
-        return ContrastiveDataPoint(ms[0], ms[1])
+        return ContrastiveMethylDataPoint(ms[0], ms[1])
 
     def __len__(self):
         return len(self.molecules)
@@ -170,5 +105,5 @@ class ContrastiveMethylDataset(Dataset):
         raise IndexError
 
 
-__all__ = ['ContrastiveDataset', 'ContrastiveMethylDataset', 'ContrastiveDataPoint', 'ContrastiveDataBatch',
-           'contrastive_collate']
+__all__ = ['ContrastiveMethylDataset', 'ContrastiveMethylDataPoint', 'ContrastiveMethylDataBatch',
+           'contrastive_methyl_collate']
