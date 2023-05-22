@@ -18,7 +18,7 @@
 #
 from pickle import loads
 from struct import Struct
-from torch import Tensor, tensor, float32, frombuffer
+from torch import Tensor, tensor, float32
 from torch.utils.data import Dataset
 from typing import List
 
@@ -55,6 +55,8 @@ class TensorUnpack(Dataset):
         self.dtype = dtype
 
     def __getitem__(self, item: int) -> Tensor:
+        from torch import frombuffer  # torch>=1.10
+
         return frombuffer(self.data[item], dtype=self.dtype)
 
 
