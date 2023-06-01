@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from torch import Tensor, cat
+from torch import Tensor
 from torch.nn import Dropout, GELU, LayerNorm, Module
 from typing import Tuple, Optional
 from .attention import MultiheadAttention
@@ -54,16 +54,10 @@ class EncoderLayer(Module):
         self.activation = activation()
         self.norm_first = norm_first
 
-    def forward(self, x: Tensor, attn_mask: Tensor, *, hidden: Optional[Tensor] = None,
+    def forward(self, x: Tensor, attn_mask: Optional[Tensor], *, cache: Optional[Tuple[Tensor, Tensor]] = None,
                 need_embedding: bool = True, need_weights: bool = False) -> Tuple[Optional[Tensor], Optional[Tensor]]:
         nx = self.norm1(x) if self.norm_first else x  # pre-norm or post-norm
-        if hidden is None:
-            kv = nx
-        else:  # inference of next token with cached embedding
-            if self.norm_first:
-                hidden = self.norm1(hidden)
-            kv = cat([hidden, nx], dim=0)  # create the whole sequence for key-value
-        e, a = self.self_attn(nx, kv, attn_mask=attn_mask, need_weights=need_weights)
+        e, a = self.self_attn(nx, attn_mask, cache=cache, need_weights=need_weights)
 
         if need_embedding:
             x = x + self.dropout1(e)

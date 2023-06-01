@@ -16,10 +16,11 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from itertools import repeat
 from torch import empty_like
 from torch.nn import GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
-from typing import Tuple, Union, List
+from typing import Optional, Tuple, List
 from warnings import warn
 from .lora import Embedding, EncoderLayer
 from ..utils.data import MoleculeDataBatch
@@ -38,9 +39,10 @@ class MoleculeEncoder(Module):
     """
     def __init__(self, max_neighbors: int = 14, max_distance: int = 10,  max_tokens: int = 0,
                  d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
-                 shared_weights: bool = True, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5,
-                 norm_first: bool = False, post_norm: bool = False, zero_bias: bool = False, perturbation: float = 0.,
-                 positional_distance: int = 0, lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
+                 shared_weights: bool = True, shared_attention_bias: bool = True, dropout: float = 0.1, activation=GELU,
+                 layer_norm_eps: float = 1e-5, norm_first: bool = False, post_norm: bool = False,
+                 zero_bias: bool = False, perturbation: float = 0., positional_distance: int = 0,
+                 lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
         Molecule TransformerEncoder layer.
 
@@ -57,6 +59,7 @@ class MoleculeEncoder(Module):
         :param lora_r: LoRA factorization dimension size in encoder embeddings. Disabled by default.
         :param lora_alpha: LoRA scaling factor.
         :param lora_dropout: LoRA input dropout.
+        :param shared_attention_bias: use shared distance encoder or unique for each transformer layer.
         """
         assert perturbation >= 0, 'zero or positive perturbation expected'
         super().__init__()
@@ -68,31 +71,46 @@ class MoleculeEncoder(Module):
             self.positional_distance = 0
         self.atoms_encoder = Embedding(121 + max_tokens, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
         self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
-        self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead,
-                                          int(zero_bias) or None, neg_inf_idx=0)
+
+        self.shared_attention_bias = shared_attention_bias
+        if shared_attention_bias:
+            self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead,
+                                              int(zero_bias) or None, neg_inf_idx=0)
+            # None filled encoders mean reusing previously calculated bias. possible manually create different arch.
+            # this done for speedup in comparison to layer duplication.
+            self.distance_encoders = [None] * num_layers
+            self.distance_encoders[0] = self.distance_encoder  # noqa
+        else:
+            self.distance_encoders = ModuleList(Embedding(positional_distance + max_distance + 3, nhead,
+                                                          int(zero_bias) or None, neg_inf_idx=0)
+                                                for _ in range(num_layers))
 
         self.max_distance = max_distance
         self.max_tokens = max_tokens
         self.max_neighbors = max_neighbors
         self.perturbation = perturbation
+        self.num_layers = num_layers
         self.post_norm = post_norm
         if post_norm:
             assert norm_first, 'post_norm requires norm_first'
             self.norm = LayerNorm(d_model, layer_norm_eps)
 
+        self.shared_weights = shared_weights
         if shared_weights:
             self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, norm_first,
                                       lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
             self.layers = [self.layer] * num_layers
         else:
+            # layers sharing scheme can be manually changed. e.g. pairs of shared encoders
             self.layers = ModuleList(EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation,
                                                   layer_norm_eps, norm_first, lora_r=lora_r, lora_alpha=lora_alpha,
                                                   lora_dropout=lora_dropout) for _ in range(num_layers))
         self._register_load_state_dict_pre_hook(_update)
 
-    def forward(self, batch: MoleculeDataBatch, /, *, intermediate_embeddings: bool = False) -> \
-            Union[TensorType['batch', 'atoms', 'embedding'],
-                  Tuple[TensorType['batch', 'atoms', 'embedding'], List[TensorType['batch', 'atoms', 'embedding']]]]:
+    def forward(self, batch: MoleculeDataBatch, /, *,
+                cache: Optional[List[Tuple[TensorType['atoms', 'batch', 'embedding'],
+                                           TensorType['atoms', 'batch', 'embedding']]]] = None) -> \
+            TensorType['batch', 'atoms', 'embedding']:
         """
         Use 0 for padding.
         Atoms should be coded by atomic numbers + 2.
@@ -101,11 +119,9 @@ class MoleculeEncoder(Module):
         Neighbors equal to 1 reserved for training tricks like MLM. Use 0 for cls.
         Distances should be coded from 2 (means self-loop) to max_distance + 2.
         Non-reachable atoms should be coded by 1.
-
-        :param intermediate_embeddings: return embedding of each layer including initial weights except last
         """
+        cache = repeat(None) if cache is None else iter(cache)
         atoms, neighbors, distances = batch
-        d_mask = self.distance_encoder(distances).permute(0, 3, 1, 2).flatten(end_dim=1)  # BxNxNxH > BxHxNxN > B*HxNxN
 
         # cls token in neighbors coded by 0
         x = self.atoms_encoder(atoms) + self.neighbors_encoder(neighbors)
@@ -113,20 +129,14 @@ class MoleculeEncoder(Module):
         if self.perturbation and self.training:
             x = x + empty_like(x).uniform_(-self.perturbation, self.perturbation)
 
-        if intermediate_embeddings:
-            embeddings = [x]
-
-        for lr in self.layers[:-1]:  # noqa
-            x, _ = lr(x, d_mask)
-            if intermediate_embeddings:
-                embeddings.append(x)  # noqa
-        x, _ = self.layers[-1](x, d_mask)
+        for lr, d, c in zip(self.layers, self.distance_encoders, cache):
+            if d is not None:
+                d_mask = d(distances).permute(0, 3, 1, 2).flatten(end_dim=1)  # BxNxNxH > BxHxNxN > B*HxNxN
+            # else: reuse previously calculated mask
+            x, _ = lr(x, d_mask, cache=c)  # noqa
 
         if self.post_norm:
-            x = self.norm(x)
-
-        if intermediate_embeddings:
-            return x, embeddings
+            return self.norm(x)
         return x
 
     def merge_lora(self):
@@ -135,7 +145,6 @@ class MoleculeEncoder(Module):
         """
         self.atoms_encoder.merge_lora()
         self.neighbors_encoder.merge_lora()
-        self.distance_encoder.merge_lora()
         for layer in self.layers:
             layer.merge_lora()
 

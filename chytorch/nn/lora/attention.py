@@ -19,7 +19,7 @@
 from math import sqrt
 from torch import baddbmm, bmm, softmax, cat, Tensor
 from torch.nn import Module
-from torch.nn.functional import dropout, linear
+from torch.nn.functional import dropout
 from typing import Optional, Tuple
 from warnings import warn
 from .linear import Linear
@@ -102,45 +102,43 @@ class MultiheadAttention(Module):
             self._register_load_state_dict_pre_hook(_update_packed)
         self.o_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
 
-    def forward(self, query: Tensor, key_value: Tensor, attn_mask: Tensor,
+    def forward(self, x: Tensor, attn_mask: Optional[Tensor], *, cache: Optional[Tuple[Tensor, Tensor]] = None,
                 need_weights: bool = True) -> Tuple[Tensor, Optional[Tensor]]:
-        bsz, tgt_len, _ = query.shape
-        _, src_len, _ = key_value.shape
-        the_same = query is key_value
-
-        query = query.transpose(1, 0)  # switch batch and sequence dims
+        bsz, tgt_len, _ = x.shape
+        x = x.transpose(1, 0)  # switch batch and sequence dims
 
         # do projection
         if self.lora_r:
-            key_value = key_value.transpose(1, 0)
+            q = self.q_proj(x)
+            k = self.k_proj(x)
+            v = self.v_proj(x)
+        else:  # optimized
+            q, k, v = self.qkv_proj(x).chunk(3, dim=-1)
 
-            q = self.q_proj(query)
-            k = self.k_proj(key_value)
-            v = self.v_proj(key_value)
-        elif the_same:  # self-attention
-            q, k, v = self.qkv_proj(query).chunk(3, dim=-1)
-        else:  # cross-attention
-            key_value = key_value.transpose(1, 0)
+        if cache is not None:
+            # inference caching. batch should be left padded. shape should be SxBxE
+            ck, cv = cache
+            ck[-tgt_len:] = k
+            cv[-tgt_len:] = v
+            k, v = ck, cv
 
-            w_q, w_kv = self.qkv_proj.weight.split([self.embed_dim, self.embed_dim * 2])
-            b_q, b_kv = self.qkv_proj.bias.split([self.embed_dim, self.embed_dim * 2])
-            q = linear(query, w_q, b_q)
-            k, v = linear(key_value, w_kv, b_kv).chunk(2, dim=-1)
+        q = q.reshape(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)  # B*HxSxE
+        k = k.reshape(-1, bsz * self.num_heads, self.head_dim).permute(1, 2, 0)  # B*HxExS
+        v = v.reshape(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)  # B*HxSxE
 
-        q = q.reshape(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
-        k = k.reshape(src_len, bsz * self.num_heads, self.head_dim).permute(1, 2, 0)
-        v = v.reshape(src_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
-
-        a = baddbmm(attn_mask, q, k, alpha=self._scale)  # scaled dot-product with bias
+        if attn_mask is None:
+            a = bmm(q, k) * self._scale
+        else:
+            a = baddbmm(attn_mask, q, k, alpha=self._scale)  # scaled dot-product with bias
         a = softmax(a, dim=-1)
         if self.training and self.dropout:
             a = dropout(a, self.dropout)
 
-        o = bmm(a, v).transpose(0, 1).contiguous().view(tgt_len * bsz, self.embed_dim)
+        o = bmm(a, v).transpose(0, 1).contiguous().view(-1, self.embed_dim)
         o = self.o_proj(o).view(tgt_len, bsz, -1).transpose(0, 1)  # switch dimensions back
 
         if need_weights:
-            a = a.view(bsz, self.num_heads, tgt_len, src_len)
+            a = a.view(bsz, -1, tgt_len, tgt_len)
             a = a.sum(dim=1) / self.num_heads
             return o, a
         else:
@@ -150,6 +148,8 @@ class MultiheadAttention(Module):
         """
         Transform LoRA MHA to normal
         """
+        if not self.lora_r:
+            return
         self.q_proj.merge_lora()
         self.k_proj.merge_lora()
         self.v_proj.merge_lora()
