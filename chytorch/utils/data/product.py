@@ -27,7 +27,7 @@ element = TypeVar('element')
 
 class ProductDataset(Dataset):
     """
-    Lazy enumeration dataset for combinatorial libraries.
+    Lazy product enumeration dataset for combinatorial libraries.
     """
     def __init__(self, *sets: Sequence[element]):
         self.sets = sets

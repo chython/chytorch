@@ -16,13 +16,13 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from .contrastive import *
 from .encoder import *
+from .methyl import *
 from .mixer import *
 from .product import *
 
 
-__all__ = ['MoleculeDataset', 'ContrastiveMethylDataset', 'MoleculeMixerDataset',
-           'MoleculeProductDataset', 'MoleculeDataPoint', 'ContrastiveMethylDataPoint', 'MoleculeMixerDataPoint',
-           'MoleculeDataBatch', 'ContrastiveMethylDataBatch', 'MoleculeMixerDataBatch',
-           'collate_molecules', 'contrastive_methyl_collate', 'collate_mixed_molecules']
+__all__ = ['MoleculeDataset', 'MoleculeMixerDataset', 'AttachedMethylDataset', 'MoleculeProductDataset',
+           'MoleculeDataPoint', 'MoleculeMixerDataPoint',
+           'MoleculeDataBatch', 'MoleculeMixerDataBatch',
+           'collate_molecules', 'collate_mixed_molecules']

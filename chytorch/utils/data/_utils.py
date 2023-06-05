@@ -29,16 +29,26 @@ except ImportError:  # ad-hoc for pytorch<1.13
 element = TypeVar('element')
 
 
-def chained_collate(*collate_fns):
+def chained_collate(*collate_fns, skip_nones=True):
     """
     Collate batch of tuples with different data structures by different collate functions.
+
+    :param skip_nones: ignore entities with Nones
     """
     def w(batch):
         sub_batches = [[] for _ in collate_fns]
         for x in batch:
+            if skip_nones and None in x:
+                continue
             for y, s in zip(x, sub_batches):
                 s.append(y)
         return [f(x) for x, f in zip(sub_batches, collate_fns)]
+    return w
+
+
+def skip_none_collate(collate_fn):
+    def w(batch):
+        return collate_fn([x for x in batch if x is not None])
     return w
 
 
@@ -105,4 +115,4 @@ class DataTypeMixin(metaclass=MultipleInheritanceNamedTupleMeta):
         return type(self)(*(x.cuda(*args, **kwargs) for x in self))
 
 
-__all__ = ['SizedList', 'ShuffledList', 'chained_collate']
+__all__ = ['SizedList', 'ShuffledList', 'chained_collate', 'skip_none_collate']

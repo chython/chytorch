@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from .contrastive import *
+from .combination import *
 from .lmdb import *
 from .molecule import *
 from .postgres import *
@@ -29,10 +29,10 @@ from .unpack import *
 from ._utils import *
 
 
-__all__ = ['MoleculeDataset', 'ContrastiveMethylDataset', 'MoleculeMixerDataset', 'MoleculeProductDataset',
+__all__ = ['MoleculeDataset', 'MoleculeMixerDataset', 'MoleculeProductDataset', 'AttachedMethylDataset',
            'ReactionEncoderDataset', 'PermutedReactionDataset', 'ReactionLabelsDataset',
-           'SMILESDataset', 'SMILESTokenizerDataset', 'ProductDataset', 'ContrastiveDataset',
+           'SMILESDataset', 'SMILESTokenizerDataset', 'ProductDataset', 'CombinationsDataset',
            'StructureSampler', 'DistributedStructureSampler',
            'SizedList', 'ShuffledList', 'LMDBMapper', 'PostgresMapper', 'PickleUnpack', 'StructUnpack', 'TensorUnpack',
-           'collate_molecules', 'contrastive_methyl_collate', 'collate_mixed_molecules', 'collate_encoded_reactions',
-           'collate_sequences', 'chained_collate', 'contrastive_collate']
+           'collate_molecules', 'collate_mixed_molecules', 'collate_encoded_reactions',
+           'collate_sequences', 'chained_collate', 'skip_none_collate']
