@@ -18,6 +18,7 @@
 #
 from .combination import *
 from .lmdb import *
+from .mmap import *
 from .molecule import *
 from .postgres import *
 from .product import *
@@ -34,5 +35,6 @@ __all__ = ['MoleculeDataset', 'MoleculeMixerDataset', 'MoleculeProductDataset', 
            'SMILESDataset', 'SMILESTokenizerDataset', 'ProductDataset', 'CombinationsDataset',
            'StructureSampler', 'DistributedStructureSampler',
            'SizedList', 'ShuffledList', 'LMDBMapper', 'PostgresMapper', 'PickleUnpack', 'StructUnpack', 'TensorUnpack',
+           'StringMemoryMapper',
            'collate_molecules', 'collate_mixed_molecules', 'collate_encoded_reactions',
            'collate_sequences', 'chained_collate', 'skip_none_collate']
