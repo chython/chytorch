@@ -17,13 +17,14 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+import numpy
 from pathlib import Path
-from setuptools import setup, find_namespace_packages
+from setuptools import setup, Extension, find_namespace_packages
 
 
 setup(
     name='chytorch',
-    version='1.46',
+    version='1.47',
     packages=find_namespace_packages(include=('chytorch.*',)),
     url='https://github.com/chython/chytorch',
     license='LGPLv3',
@@ -31,6 +32,9 @@ setup(
     author_email='nougmanoff@protonmail.com',
     python_requires='>=3.8',
     install_requires=['torchtyping>=0.1.4', 'chython>=1.38', 'torch>=1.8', 'scipy>=1.7', 'numpy>=1.20'],
+    setup_requires=['cython'],
+    ext_modules=[Extension('chytorch.utils.data.molecule._unpack', ['chytorch/utils/data/molecule/_unpack.pyx'],
+                           extra_compile_args=['-O3'], include_dirs=[numpy.get_include()])],
     package_data={'chytorch.zoo': ['README.md']},
     zip_safe=False,
     long_description=(Path(__file__).parent / 'README.md').read_text('utf8'),
