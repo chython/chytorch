@@ -18,7 +18,7 @@
 #
 from chython import MoleculeContainer
 from functools import cached_property
-from numpy import minimum, nan_to_num, ones, where
+from numpy import minimum, nan_to_num, ones
 from numpy.random import default_rng
 from scipy.sparse.csgraph import shortest_path
 from torch import IntTensor, Size, int32, ones as t_ones, zeros
@@ -103,7 +103,7 @@ class MoleculeDataset(Dataset):
         :param add_cls: add special token at first position
         :param max_neighbors: set neighbors count greater than cutoff to cutoff value
         :param unpack: unpack molecules
-        :param masking_rate: probability of masking non-self-loop or non-neighbor distance by 1
+        :param masking_rate: probability of masking non-self-loop by 0
         """
         self.molecules = molecules
         # distance_cutoff is deprecated
@@ -119,8 +119,7 @@ class MoleculeDataset(Dataset):
             atoms, neighbors, distances, _ = unpack(decompress(mol), self.add_cls,
                                                     self.max_neighbors, self.max_distance)
             if self.masking_rate:
-                distances = where((distances > 3) & (self.generator.random(distances.shape) < self.masking_rate),
-                                  1, distances)
+                distances *= ((distances <= 2) | (self.generator.random(distances.shape) > self.masking_rate))
             return MoleculeDataPoint(IntTensor(atoms), IntTensor(neighbors), IntTensor(distances))
 
         nc = self.max_neighbors
@@ -145,7 +144,7 @@ class MoleculeDataset(Dataset):
         minimum(sp, self.max_distance + 2, out=sp)
 
         if self.masking_rate:
-            sp = where((sp > 3) & (self.generator.random(sp.shape) < self.masking_rate), 1, sp)
+            sp *= ((sp <= 2) | (self.generator.random(sp.shape) > self.masking_rate))
         if self.add_cls:
             tmp = ones((len(atoms), len(atoms)))
             tmp[1:, 1:] = sp

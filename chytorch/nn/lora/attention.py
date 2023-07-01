@@ -73,12 +73,13 @@ class MultiheadAttention(Module):
     """
     LoRA wrapped Multi-Head Attention
     """
-    def __init__(self, embed_dim, num_heads, dropout=0., lora_r: int = 0, lora_alpha: float = 1.,
-                 lora_dropout: float = 0.):
+    def __init__(self, embed_dim, num_heads, dropout=0., separate_proj: bool = False,
+                 lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
         :param embed_dim: the size of each embedding vector
         :param num_heads: number of heads
         :param dropout: attention dropout
+        :param separate_proj: use separated projections calculations or optimized
         :param lora_r: LoRA factorization dimension
         :param lora_alpha: LoRA scaling factor
         :param lora_dropout: LoRA input dropout
@@ -90,9 +91,10 @@ class MultiheadAttention(Module):
         self.dropout = dropout
         self.head_dim = embed_dim // num_heads
         self.lora_r = lora_r
+        self.separate_proj = separate_proj or bool(lora_r)
         self._scale = 1 / sqrt(self.head_dim)
 
-        if lora_r:
+        if separate_proj or lora_r:
             self.q_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
             self.k_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
             self.v_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
@@ -108,7 +110,7 @@ class MultiheadAttention(Module):
         x = x.transpose(1, 0)  # switch batch and sequence dims
 
         # do projection
-        if self.lora_r:
+        if self.separate_proj:
             q = self.q_proj(x)
             k = self.k_proj(x)
             v = self.v_proj(x)
