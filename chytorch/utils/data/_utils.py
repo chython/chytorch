@@ -38,7 +38,7 @@ def chained_collate(*collate_fns, skip_nones=True):
     def w(batch):
         sub_batches = [[] for _ in collate_fns]
         for x in batch:
-            if skip_nones and None in x:
+            if skip_nones and (x is None or None in x):
                 continue
             for y, s in zip(x, sub_batches):
                 s.append(y)
@@ -87,6 +87,30 @@ class ShuffledList(Dataset):
         raise IndexError
 
 
+class SuppressException(Dataset):
+    """
+    Catch exceptions in wrapped dataset and return None instead
+    """
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def __getitem__(self, item):
+        try:
+            return self.dataset[item]
+        except Exception:
+            pass
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
+
 # https://stackoverflow.com/a/50369521
 if hasattr(NamedTuple, '__mro_entries__'):
     # Python 3.9 fixed and broke multiple inheritance in a different way
@@ -115,4 +139,4 @@ class DataTypeMixin(metaclass=MultipleInheritanceNamedTupleMeta):
         return type(self)(*(x.cuda(*args, **kwargs) for x in self))
 
 
-__all__ = ['SizedList', 'ShuffledList', 'chained_collate', 'skip_none_collate']
+__all__ = ['SizedList', 'ShuffledList', 'SuppressException', 'chained_collate', 'skip_none_collate']
