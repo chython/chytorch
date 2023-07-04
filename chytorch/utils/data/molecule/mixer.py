@@ -58,7 +58,8 @@ default_collate_fn_map[MoleculeMixerDataPoint] = collate_mixed_molecules  # add 
 
 
 class MoleculeMixerDataset(Dataset):
-    def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], conditions: Sequence[Sequence[Hashable]],
+    def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]],
+                 conditions: Sequence[Sequence[Hashable]] = None,
                  *, max_distance: int = 10, max_neighbors: int = 14, add_cls: bool = False, unpack: bool = False,
                  dictionary: Dict[Hashable, int] = None, positional_distance: int = 0, masking_rate: float = 0,
                  max_tokens: Optional[int] = None, auto_eos: bool = True):
@@ -82,7 +83,7 @@ class MoleculeMixerDataset(Dataset):
         :param max_tokens: maximal length of sequence in dataset including SOS and EOS or other special tokens
         :param auto_eos: automatically add EOS token.
         """
-        assert len(molecules) == len(conditions), 'reactions and conditions counts mismatch'
+        assert conditions is None or len(molecules) == len(conditions), 'reactions and conditions counts mismatch'
 
         self.molecules = molecules
         self.conditions = conditions
@@ -98,7 +99,7 @@ class MoleculeMixerDataset(Dataset):
         else:
             self.dictionary = dictionary = {}
             tmp = 0
-            for c in conditions:
+            for c in conditions or []:
                 if len(c) > tmp:
                     tmp = len(c)
                 for x in c:
@@ -121,7 +122,7 @@ class MoleculeMixerDataset(Dataset):
 
     def __getitem__(self, item: int) -> MoleculeMixerDataPoint:
         dictionary = self.dictionary
-        conditions = [dictionary[x] for x in self.conditions[item]]
+        conditions = [] if self.conditions is None else [dictionary[x] for x in self.conditions[item]]
         if not conditions and not self.auto_eos:
             raise ValueError('empty conditions without auto_eos')
 

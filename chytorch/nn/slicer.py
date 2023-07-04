@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright 2022 Ramil Nugmanov <nougmanoff@protonmail.com>
+#  Copyright 2022x, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #  This file is part of chytorch.
 #
 #  chytorch is free software; you can redistribute it and/or modify
@@ -29,7 +29,7 @@ class Slicer(Module):
         E.g. Slicer(slice(None), 0) equal to Tensor[:, 0]
         """
         super().__init__()
-        self.slice = slc
+        self.slice = slc if len(slc) > 1 else slc[0]
 
     def forward(self, x: Tensor):
         return x.__getitem__(self.slice)

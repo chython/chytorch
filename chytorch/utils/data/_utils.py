@@ -29,21 +29,24 @@ except ImportError:  # ad-hoc for pytorch<1.13
 element = TypeVar('element')
 
 
-def chained_collate(*collate_fns, skip_nones=True):
+class chained_collate:
     """
     Collate batch of tuples with different data structures by different collate functions.
 
     :param skip_nones: ignore entities with Nones
     """
-    def w(batch):
-        sub_batches = [[] for _ in collate_fns]
+    def __init__(self, *collate_fns, skip_nones=True):
+        self.collate_fns = collate_fns
+        self.skip_nones = skip_nones
+
+    def __call__(self, batch):
+        sub_batches = [[] for _ in self.collate_fns]
         for x in batch:
-            if skip_nones and (x is None or None in x):
+            if self.skip_nones and (x is None or None in x):
                 continue
             for y, s in zip(x, sub_batches):
                 s.append(y)
-        return [f(x) for x, f in zip(sub_batches, collate_fns)]
-    return w
+        return [f(x) for x, f in zip(sub_batches, self.collate_fns)]
 
 
 def skip_none_collate(collate_fn):

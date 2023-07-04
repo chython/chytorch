@@ -24,7 +24,7 @@ from setuptools import setup, Extension, find_namespace_packages
 
 setup(
     name='chytorch',
-    version='1.47',
+    version='1.48',
     packages=find_namespace_packages(include=('chytorch.*',)),
     url='https://github.com/chython/chytorch',
     license='LGPLv3',
@@ -35,7 +35,7 @@ setup(
     setup_requires=['cython'],
     ext_modules=[Extension('chytorch.utils.data.molecule._unpack', ['chytorch/utils/data/molecule/_unpack.pyx'],
                            extra_compile_args=['-O3'], include_dirs=[numpy.get_include()])],
-    package_data={'chytorch.zoo': ['README.md']},
+    package_data={'chytorch.zoo': ['README.md'], 'chytorch.utils.data.molecule': ['_unpack.pyx']},
     zip_safe=False,
     long_description=(Path(__file__).parent / 'README.md').read_text('utf8'),
     long_description_content_type='text/markdown',
