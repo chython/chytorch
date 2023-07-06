@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from mmap import mmap, ACCESS_READ, MADV_RANDOM, MADV_SEQUENTIAL
+from mmap import mmap, ACCESS_READ
 from pathlib import Path
 from pickle import load, dump
 from re import compile
@@ -59,21 +59,38 @@ class StringMemoryMapper(Dataset):
                 path = Path(path)
             self._file = file = path.open('rb')
             self._data = data = mmap(file.fileno(), 0, access=ACCESS_READ)
-            data.madvise(MADV_RANDOM)  # disable readahead
+
+            try:
+                from mmap import MADV_RANDOM
+            except ImportError:  # windows
+                pass
+            else:
+                data.madvise(MADV_RANDOM)  # disable readahead
 
         try:
             mapping = self._mapping
-        except AttributeError:
-            # build mapping
-            data.madvise(MADV_SEQUENTIAL)  # faster indexation
+        except AttributeError:  # build mapping
+            try:
+                from mmap import MADV_SEQUENTIAL
+            except ImportError:  # windows
+                pass
+            else:
+                data.madvise(MADV_SEQUENTIAL)  # faster indexation
+
             self._mapping = mapping = [0]
             mapping.extend(x.span()[1] for x in compile(b'\n').finditer(data))
-            data.madvise(MADV_RANDOM)  # disable readahead
             if (cache := self.cache) is not None:  # save to cache
                 if isinstance(cache, str):
                     cache = Path(cache)
                 with cache.open('wb') as f:
                     dump(mapping, f)
+
+            try:
+                from mmap import MADV_RANDOM
+            except ImportError:  # windows
+                pass
+            else:
+                data.madvise(MADV_RANDOM)  # disable readahead
 
         data.seek(mapping[item])
         return data.readline().strip().decode()
