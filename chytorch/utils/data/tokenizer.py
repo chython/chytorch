@@ -35,7 +35,7 @@ def collate_sequences(batch) -> TensorType['batch', 'atoms', int]:
 class SMILESTokenizerDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[bytes, MoleculeContainer]], *, format_spec: Optional[str] = None,
                  add_sos: bool = True, add_eos: bool = True,
-                 unpack: bool = False, dictionary: Dict[str, int] = None):
+                 unpack: bool = False, dictionary: Dict[str, int] = None, compressed: bool = True):
         """
         Convert molecules into smiles and tokenize it.
 
@@ -45,6 +45,7 @@ class SMILESTokenizerDataset(Dataset):
         :param add_eos: add end token == 2
         :param dictionary: token to idx map. Token idx 0, 1, and 2 should be reserved for PAD SOS EOS.
         :param unpack: unpack molecules
+        :param compressed: packed molecules are compressed
         """
         self.molecules = molecules
         self.add_sos = add_sos
@@ -53,6 +54,7 @@ class SMILESTokenizerDataset(Dataset):
         self.dictionary = dictionary if dictionary is not None else {'C': 3}
         self._reverse = None
         self.first_free = max(self.dictionary.values()) + 1
+        self.compressed = compressed
 
         self.format = kwargs = {}
         if format_spec:
@@ -87,7 +89,7 @@ class SMILESTokenizerDataset(Dataset):
         d = self.dictionary
         m = self.molecules[item]
         if self.unpack:
-            m = MoleculeContainer.unpack(m)
+            m = MoleculeContainer.unpack(m, compressed=self.compressed)
 
         if self.format.get('random'):
             def w(_):

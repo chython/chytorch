@@ -67,6 +67,22 @@ class SizedList(List):
         raise IndexError
 
 
+class ByteRange:
+    """
+    Range returning values as bytes
+    """
+    def __init__(self, *args, size=4, order='big', **kwargs):
+        self.range = range(*args, **kwargs)
+        self.size = size
+        self.order = order
+
+    def __getitem__(self, item):
+        return self.range[item].to_bytes(self.size, self.order)
+
+    def __len__(self):
+        return len(self.range)
+
+
 class ShuffledList(Dataset):
     """
     Returns randomly shuffled sequences
@@ -142,4 +158,4 @@ class DataTypeMixin(metaclass=MultipleInheritanceNamedTupleMeta):
         return type(self)(*(x.cuda(*args, **kwargs) for x in self))
 
 
-__all__ = ['SizedList', 'ShuffledList', 'SuppressException', 'chained_collate', 'skip_none_collate']
+__all__ = ['SizedList', 'ShuffledList', 'SuppressException', 'ByteRange', 'chained_collate', 'skip_none_collate']

@@ -82,19 +82,26 @@ isosteres = {(*bs, rp): [x for x in rps if x[0] != rp] for bs, rps in isosteres.
 
 class PermutedReactionDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *,
-                 rate: float = .15, unpack: bool = False):
+                 rate: float = .15, unpack: bool = False, compressed: bool = True):
         """
         Prepare reactions with randomly permuted "organic" atoms.
 
         :param rate: probability of replacement
         :param unpack: unpack reactions
+        :param compressed: packed reactions are compressed
         """
         self.reactions = reactions
         self.rate = rate
         self.unpack = unpack
+        self.compressed = compressed
 
     def __getitem__(self, item: int) -> ReactionContainer:
-        r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item].copy()
+        r = self.reactions[item]
+        if self.unpack:
+            r = ReactionContainer.unpack(r, compressed=self.compressed)
+        else:
+            r = r.copy()
+
         for m in chain(r.products, r.reactants):
             bonds = m._bonds  # noqa
             hgs = m._hydrogens  # noqa
@@ -121,19 +128,24 @@ class PermutedReactionDataset(Dataset):
 
 class ReactionLabelsDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *,
-                 add_cls: bool = True, unpack: bool = False):
+                 add_cls: bool = True, unpack: bool = False, compressed: bool = True):
         """
         Return atoms' tokens of reactions.
 
         :param add_cls: add special token at first position
         :param unpack: unpack reactions
+        :param compressed: packed reactions are compressed
         """
         self.reactions = reactions
         self.add_cls = add_cls
         self.unpack = unpack
+        self.compressed = compressed
 
     def __getitem__(self, item: int) -> TensorType['atoms', int]:
-        r = ReactionContainer.unpack(self.reactions[item]) if self.unpack else self.reactions[item]
+        r = self.reactions[item]
+        if self.unpack:
+            r = ReactionContainer.unpack(r, compressed=self.compressed)
+
         labels = [1] if self.add_cls else []
         for m in chain(r.products, r.reactants):
             for _, a in m.atoms():

@@ -85,7 +85,7 @@ default_collate_fn_map[ReactionEncoderDataPoint] = collate_encoded_reactions  # 
 class ReactionEncoderDataset(Dataset):
     def __init__(self, reactions: Sequence[Union[ReactionContainer, bytes]], *, max_distance: int = 10,
                  max_neighbors: int = 14, add_cls: bool = True, add_molecule_cls: bool = True,
-                 hide_molecule_cls: bool = True, unpack: bool = False, distance_cutoff=None):
+                 hide_molecule_cls: bool = True, unpack: bool = False, distance_cutoff=None, compressed: bool = True):
         """
         convert reactions to tuple of:
             atoms, neighbors and distances tensors similar to molecule dataset.
@@ -98,6 +98,8 @@ class ReactionEncoderDataset(Dataset):
         :param add_molecule_cls: add special token at first position of each molecule
         :param hide_molecule_cls: disable molecule cls in reaction lvl (mark as padding)
         :param max_neighbors: set neighbors count greater than cutoff to cutoff value
+        :param unpack: unpack reactions
+        :param compressed: packed reactions are compressed
         """
         if not add_molecule_cls:
             assert not hide_molecule_cls, 'add_molecule_cls should be True if hide_molecule_cls is True'
@@ -109,11 +111,12 @@ class ReactionEncoderDataset(Dataset):
         self.hide_molecule_cls = hide_molecule_cls
         self.max_neighbors = max_neighbors
         self.unpack = unpack
+        self.compressed = compressed
 
     def __getitem__(self, item: int) -> ReactionEncoderDataPoint:
         rxn = self.reactions[item]
         if self.unpack:
-            rxn = ReactionContainer.unpack(rxn)
+            rxn = ReactionContainer.unpack(rxn, compressed=self.compressed)
         molecules = MoleculeDataset(rxn.reactants + rxn.products, max_distance=self.max_distance,
                                     max_neighbors=self.max_neighbors, add_cls=self.add_molecule_cls)
 

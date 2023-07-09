@@ -26,20 +26,26 @@ from typing import Union, Sequence
 
 class AttachedMethylDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[bytes, MoleculeContainer]], *,
-                 rate: float = .15, unpack: bool = False):
+                 rate: float = .15, unpack: bool = False, compressed: bool = True):
         """
         Do random replacements of hydrogens to methyl group of carbon/nitrogen atoms.
 
         :param molecules: list of molecules.
         :param rate: probability of replacement.
         :param unpack: unpacked packed molecule.
+        :param compressed: packed molecules are compressed
         """
         self.molecules = molecules
         self.rate = rate
         self.unpack = unpack
+        self.compressed = compressed
 
     def __getitem__(self, item: int) -> MoleculeContainer:
-        mol = MoleculeContainer.unpack(self.molecules[item]) if self.unpack else self.molecules[item].copy()
+        mol = self.molecules[item]
+        if self.unpack:
+            mol = MoleculeContainer.unpack(mol, compressed=self.compressed)
+        else:
+            mol = mol.copy()
         hgs = mol._hydrogens  # noqa
 
         potent = []

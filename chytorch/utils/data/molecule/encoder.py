@@ -85,7 +85,7 @@ default_collate_fn_map[MoleculeDataPoint] = collate_molecules  # add auto_collat
 class MoleculeDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *, max_distance: int = 10,
                  add_cls: bool = True, max_neighbors: int = 14, unpack: bool = False, distance_cutoff=None,
-                 masking_rate: float = 0):
+                 masking_rate: float = 0, compressed: bool = True):
         """
         convert molecules to tuple of:
             atoms vector with atomic numbers + 2,
@@ -104,6 +104,7 @@ class MoleculeDataset(Dataset):
         :param max_neighbors: set neighbors count greater than cutoff to cutoff value
         :param unpack: unpack molecules
         :param masking_rate: probability of masking non-self-loop by 0
+        :param compressed: packed molecules are compressed
         """
         self.molecules = molecules
         # distance_cutoff is deprecated
@@ -112,12 +113,14 @@ class MoleculeDataset(Dataset):
         self.max_neighbors = max_neighbors
         self.unpack = unpack
         self.masking_rate = masking_rate
+        self.compressed = compressed
 
     def __getitem__(self, item: int) -> MoleculeDataPoint:
         mol = self.molecules[item]
         if self.unpack:
-            atoms, neighbors, distances, _ = unpack(decompress(mol), self.add_cls,
-                                                    self.max_neighbors, self.max_distance)
+            if self.compressed:
+                mol = decompress(mol)
+            atoms, neighbors, distances, _ = unpack(mol, self.add_cls, self.max_neighbors, self.max_distance)
             if self.masking_rate:
                 distances *= ((distances <= 2) | (self.generator.random(distances.shape) > self.masking_rate))
             return MoleculeDataPoint(IntTensor(atoms), IntTensor(neighbors), IntTensor(distances))

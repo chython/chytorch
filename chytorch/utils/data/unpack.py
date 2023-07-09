@@ -16,11 +16,13 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from functools import cached_property, partial
 from pickle import loads
 from struct import Struct
-from torch import Tensor, tensor, float32
+from torch import Tensor, tensor, float32, Size
 from torch.utils.data import Dataset
 from typing import List
+from zlib import decompress
 
 
 class StructUnpack(Dataset):
@@ -42,6 +44,16 @@ class StructUnpack(Dataset):
     def __getitem__(self, item: int) -> Tensor:
         return tensor(self._struct.unpack(self.data[item]), dtype=self.dtype)
 
+    def __len__(self):
+        return len(self.data)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
 
 class TensorUnpack(Dataset):
     def __init__(self, data: List[bytes], dtype=float32):
@@ -59,6 +71,16 @@ class TensorUnpack(Dataset):
 
         return frombuffer(self.data[item], dtype=self.dtype)
 
+    def __len__(self):
+        return len(self.data)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
 
 class PickleUnpack(Dataset):
     def __init__(self, data: List[bytes]):
@@ -72,5 +94,79 @@ class PickleUnpack(Dataset):
     def __getitem__(self, item: int):
         return loads(self.data[item])
 
+    def __len__(self):
+        return len(self.data)
 
-__all__ = ['TensorUnpack', 'StructUnpack', 'PickleUnpack']
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
+
+class Decompress(Dataset):
+    def __init__(self, data: List[bytes], method: str = 'zlib', zdict: bytes = None):
+        """
+        Decompress zipped data.
+
+        :param data: compressed data
+        :param method: zlib or zstd
+        :param zdict: zstd decompression dictionary
+        """
+        assert method in ('zlib', 'zstd')
+        self.data = data
+        self.method = method
+        self.zdict = zdict
+
+    def __getitem__(self, item: int) -> bytes:
+        return self.decompress(self.data[item])
+
+    @cached_property
+    def decompress(self):
+        if self.method == 'zlib':
+            return decompress
+        # zstd
+        from pyzstd import decompress as dc, ZstdDict
+
+        if self.zdict is not None:
+            return partial(dc, zstd_dict=ZstdDict(self.zdict))
+        return dc
+
+    def __len__(self):
+        return len(self.data)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
+
+class Decode(Dataset):
+    def __init__(self, data: List[bytes], encoding: str = 'utf8'):
+        """
+        Bytes to string decoder dataset
+
+        :param data: byte-coded strings
+        :param encoding: string encoding
+        """
+        self.data = data
+        self.encoding = encoding
+
+    def __getitem__(self, item: int) -> str:
+        return self.data[item].decode(encoding=self.encoding)
+
+    def __len__(self):
+        return len(self.data)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
+
+__all__ = ['TensorUnpack', 'StructUnpack', 'PickleUnpack', 'Decompress', 'Decode']

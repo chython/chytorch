@@ -62,7 +62,7 @@ class MoleculeMixerDataset(Dataset):
                  conditions: Sequence[Sequence[Hashable]] = None,
                  *, max_distance: int = 10, max_neighbors: int = 14, add_cls: bool = False, unpack: bool = False,
                  dictionary: Dict[Hashable, int] = None, positional_distance: int = 0, masking_rate: float = 0,
-                 max_tokens: Optional[int] = None, auto_eos: bool = True):
+                 max_tokens: Optional[int] = None, auto_eos: bool = True, compressed: bool = True):
         """
         convert molecules and categorical conditions to tuple of:
             atoms, neighbors and distances tensors similar to molecule dataset.
@@ -82,6 +82,7 @@ class MoleculeMixerDataset(Dataset):
         :param masking_rate: probability of masking non-self-loop by 0
         :param max_tokens: maximal length of sequence in dataset including SOS and EOS or other special tokens
         :param auto_eos: automatically add EOS token.
+        :param compressed: packed molecules are compressed
         """
         assert conditions is None or len(molecules) == len(conditions), 'reactions and conditions counts mismatch'
 
@@ -91,7 +92,8 @@ class MoleculeMixerDataset(Dataset):
         self.auto_eos = auto_eos
 
         self._dataset = MoleculeDataset(molecules, max_distance=max_distance, max_neighbors=max_neighbors,
-                                        add_cls=add_cls, unpack=unpack, masking_rate=masking_rate)
+                                        add_cls=add_cls, unpack=unpack, masking_rate=masking_rate,
+                                        compressed=compressed)
 
         if dictionary is not None:
             self.dictionary = dictionary
