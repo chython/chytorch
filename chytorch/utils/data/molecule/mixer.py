@@ -84,7 +84,7 @@ class MoleculeMixerDataset(Dataset):
         :param auto_eos: automatically add EOS token.
         :param compressed: packed molecules are compressed
         """
-        assert conditions is None or len(molecules) == len(conditions), 'reactions and conditions counts mismatch'
+        assert conditions is None or len(molecules) == len(conditions), 'molecules and conditions counts mismatch'
 
         self.molecules = molecules
         self.conditions = conditions
