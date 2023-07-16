@@ -35,6 +35,6 @@ __all__ = ['MoleculeDataset', 'MoleculeMixerDataset', 'MoleculeProductDataset', 
            'SMILESDataset', 'SMILESTokenizerDataset', 'ProductDataset', 'CombinationsDataset',
            'StructureSampler', 'DistributedStructureSampler',
            'SizedList', 'ShuffledList', 'ByteRange', 'LMDBMapper', 'PostgresMapper', 'StringMemoryMapper',
-           'PickleUnpack', 'StructUnpack', 'TensorUnpack', 'Decompress', 'Decode',
+           'PickleUnpack', 'JsonUnpack', 'StructUnpack', 'TensorUnpack', 'Decompress', 'Decode',
            'collate_molecules', 'collate_mixed_molecules', 'collate_encoded_reactions',
            'collate_sequences', 'chained_collate', 'skip_none_collate']

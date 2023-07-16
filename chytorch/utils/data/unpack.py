@@ -17,6 +17,7 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from functools import cached_property, partial
+from json import loads as json_loads
 from pickle import loads
 from struct import Struct
 from torch import Tensor, tensor, float32, Size
@@ -105,6 +106,29 @@ class PickleUnpack(Dataset):
         raise IndexError
 
 
+class JsonUnpack(Dataset):
+    def __init__(self, data: List[str]):
+        """
+        Unpack Json data.
+
+        :param data: json strings
+        """
+        self.data = data
+
+    def __getitem__(self, item: int):
+        return json_loads(self.data[item])
+
+    def __len__(self):
+        return len(self.data)
+
+    def size(self, dim):
+        if dim == 0:
+            return len(self)
+        elif dim is None:
+            return Size((len(self),))
+        raise IndexError
+
+
 class Decompress(Dataset):
     def __init__(self, data: List[bytes], method: str = 'zlib', zdict: bytes = None):
         """
@@ -169,4 +193,4 @@ class Decode(Dataset):
         raise IndexError
 
 
-__all__ = ['TensorUnpack', 'StructUnpack', 'PickleUnpack', 'Decompress', 'Decode']
+__all__ = ['TensorUnpack', 'StructUnpack', 'PickleUnpack', 'JsonUnpack', 'Decompress', 'Decode']
