@@ -53,7 +53,7 @@ class LMDBMapper(Dataset):
         except AttributeError:
             from lmdb import Environment
 
-            self._db = db = Environment(self.db, readonly=True)
+            self._db = db = Environment(self.db, readonly=True, lock=False)
             self._tr = tr = db.begin()
 
         try:
@@ -77,7 +77,7 @@ class LMDBMapper(Dataset):
             # temporary open db
             from lmdb import Environment
 
-            with Environment(self.db, readonly=True) as f:
+            with Environment(self.db, readonly=True, lock=False) as f:
                 return f.stat()['entries']
 
     def size(self, dim):
