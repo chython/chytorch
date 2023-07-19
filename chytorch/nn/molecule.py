@@ -37,25 +37,23 @@ class MoleculeEncoder(Module):
     """
     Inspired by https://arxiv.org/pdf/2106.05234.pdf
     """
-    def __init__(self, max_neighbors: int = 14, max_distance: int = 10,  max_tokens: int = 0,
-                 d_model: int = 1024, nhead: int = 16, num_layers: int = 8, dim_feedforward: int = 3072,
-                 shared_weights: bool = True, shared_attention_bias: bool = True, dropout: float = 0.1, activation=GELU,
+    def __init__(self, max_neighbors: int = 14, max_distance: int = 10, d_model: int = 1024, nhead: int = 16,
+                 num_layers: int = 8, dim_feedforward: int = 3072, shared_weights: bool = True,
+                 shared_attention_bias: bool = True, dropout: float = 0.1, activation=GELU,
                  layer_norm_eps: float = 1e-5, norm_first: bool = False, post_norm: bool = False,
-                 zero_bias: bool = False, perturbation: float = 0., positional_distance: int = 0,
+                 zero_bias: bool = False, perturbation: float = 0.,
                  lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
         Molecule TransformerEncoder layer.
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.
-        :param max_tokens: number of non-atomic tokens including SOS, EOS.
         :param shared_weights: ALBERT-like encoder weights sharing.
         :param norm_first: do pre-normalization in encoder layers.
         :param post_norm: do normalization of output. Works only when norm_first=True.
         :param zero_bias: use frozen zero bias of attention for non-reachable atoms.
         :param perturbation: add perturbation to embedding (https://aclanthology.org/2021.naacl-main.460.pdf).
             Disabled by default
-        :param positional_distance: ALIBI-like (but learnable) positional encoding threshold. Disabled by default.
         :param lora_r: LoRA factorization dimension size in encoder embeddings. Disabled by default.
         :param lora_alpha: LoRA scaling factor.
         :param lora_dropout: LoRA input dropout.
@@ -63,30 +61,22 @@ class MoleculeEncoder(Module):
         """
         assert perturbation >= 0, 'zero or positive perturbation expected'
         super().__init__()
-        if positional_distance:
-            assert positional_distance > 1, 'positional distance should be greater than 1 or disabled'
-            self.positional_distance = positional_distance
-            positional_distance -= 1
-        else:
-            self.positional_distance = 0
-        self.atoms_encoder = Embedding(121 + max_tokens, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
+        self.atoms_encoder = Embedding(121, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
         self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
 
         self.shared_attention_bias = shared_attention_bias
         if shared_attention_bias:
-            self.distance_encoder = Embedding(positional_distance + max_distance + 3, nhead,
-                                              int(zero_bias) or None, neg_inf_idx=0)
+            self.distance_encoder = Embedding(max_distance + 3, nhead, int(zero_bias) or None, neg_inf_idx=0)
             # None filled encoders mean reusing previously calculated bias. possible manually create different arch.
             # this done for speedup in comparison to layer duplication.
             self.distance_encoders = [None] * num_layers
             self.distance_encoders[0] = self.distance_encoder  # noqa
         else:
-            self.distance_encoders = ModuleList(Embedding(positional_distance + max_distance + 3, nhead,
+            self.distance_encoders = ModuleList(Embedding(max_distance + 3, nhead,
                                                           int(zero_bias) or None, neg_inf_idx=0)
                                                 for _ in range(num_layers))
 
         self.max_distance = max_distance
-        self.max_tokens = max_tokens
         self.max_neighbors = max_neighbors
         self.perturbation = perturbation
         self.num_layers = num_layers

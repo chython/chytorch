@@ -30,11 +30,11 @@ from .unpack import *
 from ._utils import *
 
 
-__all__ = ['MoleculeDataset', 'MoleculeMixerDataset', 'MoleculeProductDataset', 'AttachedMethylDataset',
+__all__ = ['MoleculeDataset', 'MoleculeProductDataset', 'AttachedMethylDataset',
            'ReactionEncoderDataset', 'PermutedReactionDataset', 'ReactionLabelsDataset',
            'SMILESDataset', 'SMILESTokenizerDataset', 'ProductDataset', 'CombinationsDataset',
            'StructureSampler', 'DistributedStructureSampler',
            'SuppressException', 'SizedList', 'ShuffledList', 'ByteRange', 'LMDBMapper', 'PostgresMapper',
            'StringMemoryMapper', 'PickleUnpack', 'JsonUnpack', 'StructUnpack', 'TensorUnpack', 'Decompress', 'Decode',
-           'collate_molecules', 'collate_mixed_molecules', 'collate_encoded_reactions',
+           'collate_molecules', 'collate_encoded_reactions',
            'collate_sequences', 'chained_collate', 'skip_none_collate']

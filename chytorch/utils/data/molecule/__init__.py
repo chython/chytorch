@@ -18,11 +18,8 @@
 #
 from .encoder import *
 from .methyl import *
-from .mixer import *
 from .product import *
 
 
-__all__ = ['MoleculeDataset', 'MoleculeMixerDataset', 'AttachedMethylDataset', 'MoleculeProductDataset',
-           'MoleculeDataPoint', 'MoleculeMixerDataPoint',
-           'MoleculeDataBatch', 'MoleculeMixerDataBatch',
-           'collate_molecules', 'collate_mixed_molecules']
+__all__ = ['MoleculeDataset', 'AttachedMethylDataset', 'MoleculeProductDataset',
+           'MoleculeDataPoint', 'MoleculeDataBatch', 'collate_molecules']
