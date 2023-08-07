@@ -85,7 +85,7 @@ default_collate_fn_map[MoleculeDataPoint] = collate_molecules  # add auto_collat
 class MoleculeDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *, max_distance: int = 10,
                  add_cls: bool = True, max_neighbors: int = 14, unpack: bool = False, distance_cutoff=None,
-                 masking_rate: float = 0, compressed: bool = True):
+                 distance_masking_rate: float = 0, compressed: bool = True):
         """
         convert molecules to tuple of:
             atoms vector with atomic numbers + 2,
@@ -103,7 +103,7 @@ class MoleculeDataset(Dataset):
         :param add_cls: add special token at first position
         :param max_neighbors: set neighbors count greater than cutoff to cutoff value
         :param unpack: unpack molecules
-        :param masking_rate: probability of masking non-self-loop by 0
+        :param distance_masking_rate: probability of masking non-self-loop by 0
         :param compressed: packed molecules are compressed
         """
         self.molecules = molecules
@@ -112,7 +112,7 @@ class MoleculeDataset(Dataset):
         self.add_cls = add_cls
         self.max_neighbors = max_neighbors
         self.unpack = unpack
-        self.masking_rate = masking_rate
+        self.distance_masking_rate = distance_masking_rate
         self.compressed = compressed
 
     def __getitem__(self, item: int) -> MoleculeDataPoint:
@@ -121,8 +121,8 @@ class MoleculeDataset(Dataset):
             if self.compressed:
                 mol = decompress(mol)
             atoms, neighbors, distances, _ = unpack(mol, self.add_cls, self.max_neighbors, self.max_distance)
-            if self.masking_rate:
-                distances *= ((distances <= 2) | (self.generator.random(distances.shape) > self.masking_rate))
+            if self.distance_masking_rate:
+                distances *= ((distances <= 2) | (self.generator.random(distances.shape) > self.distance_masking_rate))
             return MoleculeDataPoint(IntTensor(atoms), IntTensor(neighbors), IntTensor(distances))
 
         nc = self.max_neighbors
@@ -146,8 +146,8 @@ class MoleculeDataset(Dataset):
         nan_to_num(sp, copy=False, posinf=1)
         minimum(sp, self.max_distance + 2, out=sp)
 
-        if self.masking_rate:
-            sp *= ((sp <= 2) | (self.generator.random(sp.shape) > self.masking_rate))
+        if self.distance_masking_rate:
+            sp *= ((sp <= 2) | (self.generator.random(sp.shape) > self.distance_masking_rate))
         if self.add_cls:
             tmp = ones((len(atoms), len(atoms)))
             tmp[1:, 1:] = sp

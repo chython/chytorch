@@ -82,11 +82,13 @@ class ModelEstimator:
         p = Pipeline([('smiles', sw), ('molecule', mw), ('model', sm)])
         p.predict(['CN(C)C', 'CCO'])
     """
-    def __init__(self, model: Module):
+    def __init__(self, model: Module, **kwargs):
         """
         :param model: pytorch model
+        :param kwargs: params for proper model initialization from pickle dump
         """
         self.model = model.eval()
+        self.kwargs = kwargs
 
     def fit(self, X, y):
         """
@@ -97,6 +99,14 @@ class ModelEstimator:
     @no_grad()
     def predict(self, X):
         return self.model(X)
+
+    def __getstate__(self):
+        return {'model': type(self.model), 'kwargs': self.kwargs, 'weights': self.model.state_dict()}
+
+    def __setstate__(self, state):
+        self.model = state['model'](**state['kwargs']).eval()
+        self.model.load_state_dict(state['weights'])
+        self.kwargs = state['kwargs']
 
 
 __all__ = ['DatasetTransformer', 'ModelEstimator']
