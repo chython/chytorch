@@ -50,7 +50,7 @@ class StringMemoryMapper(Dataset):
         with cache.open('rb') as f:
             self._mapping = load(f)
 
-    def __getitem__(self, item: int) -> str:
+    def __getitem__(self, item: int) -> bytes:
         try:
             data = self._data
         except AttributeError:
@@ -78,6 +78,7 @@ class StringMemoryMapper(Dataset):
                 data.madvise(MADV_SEQUENTIAL)  # faster indexation
 
             self._mapping = mapping = [0]
+            # expected what all lines properly ended
             mapping.extend(x.span()[1] for x in compile(b'\n').finditer(data))
             if (cache := self.cache) is not None:  # save to cache
                 if isinstance(cache, str):
@@ -91,12 +92,10 @@ class StringMemoryMapper(Dataset):
                 pass
             else:
                 data.madvise(MADV_RANDOM)  # disable readahead
-
-        data.seek(mapping[item])
-        return data.readline().strip().decode()
+        return data[mapping[item]: mapping[item + 1]]
 
     def __len__(self):
-        return len(self._mapping)
+        return len(self._mapping) - 1
 
     def size(self, dim):
         if dim == 0:

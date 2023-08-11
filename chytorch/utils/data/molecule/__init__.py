@@ -16,10 +16,13 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
+from .conformer import *
 from .encoder import *
 from .methyl import *
 from .product import *
 
 
-__all__ = ['MoleculeDataset', 'AttachedMethylDataset', 'MoleculeProductDataset',
-           'MoleculeDataPoint', 'MoleculeDataBatch', 'collate_molecules']
+__all__ = ['MoleculeDataset', 'MoleculeDataPoint', 'MoleculeDataBatch', 'collate_molecules',
+           'ConformerDataset', 'ConformerDataPoint', 'ConformerDataBatch', 'collate_conformers',
+           'AttachedMethylDataset',
+           'MoleculeProductDataset']

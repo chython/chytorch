@@ -25,8 +25,8 @@ ReactionDataset = ReactionEncoderDataset
 collate_reactions = collate_encoded_reactions
 
 
-__all__ = ['ReactionEncoderDataset', 'PermutedReactionDataset', 'ReactionLabelsDataset',
-           'ReactionEncoderDataPoint', 'ReactionEncoderDataBatch',
+__all__ = ['ReactionEncoderDataset', 'ReactionEncoderDataPoint', 'ReactionEncoderDataBatch',
            'collate_encoded_reactions',
+           'PermutedReactionDataset', 'ReactionLabelsDataset',
            # reverse compatibility
            'ReactionDataset', 'collate_reactions']
