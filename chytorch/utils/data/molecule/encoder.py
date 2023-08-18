@@ -21,7 +21,7 @@ from functools import cached_property
 from numpy import minimum, nan_to_num, ones
 from numpy.random import default_rng
 from scipy.sparse.csgraph import shortest_path
-from torch import IntTensor, Size, int32, ones as t_ones, zeros
+from torch import IntTensor, Size, int32, ones as t_ones, zeros, eye
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
@@ -62,12 +62,7 @@ def collate_molecules(batch, *, padding_left: bool = False, collate_fn_map=None)
 
     pa = pad_sequence(atoms, True)
     b, s = pa.shape
-    tmp = zeros(b, s, s, dtype=int32)
-    # prevent nan in MHA softmax on padding
-    if padding_left:
-        tmp[:, :, -1] = 1
-    else:
-        tmp[:, :, 0] = 1
+    tmp = eye(s, dtype=int32).repeat(b, 1, 1)  # prevent nan in MHA softmax on padding
     for i, d in enumerate(distances):
         s = d.size(0)
         if padding_left:

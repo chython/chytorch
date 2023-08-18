@@ -20,7 +20,7 @@ from chython import MoleculeContainer
 from functools import cached_property
 from numpy import empty, ndarray, sqrt, square, ones, digitize, arange, int32
 from numpy.random import default_rng
-from torch import IntTensor, Size, zeros, ones as t_ones, int32 as t_int32
+from torch import IntTensor, Size, zeros, ones as t_ones, int32 as t_int32, eye
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
@@ -59,12 +59,7 @@ def collate_conformers(batch, *, padding_left: bool = False, collate_fn_map=None
 
     pa = pad_sequence(atoms, True)
     b, s = pa.shape
-    tmp = zeros(b, s, s, dtype=t_int32)
-    # prevent nan in MHA softmax on padding
-    if padding_left:
-        tmp[:, :, -1] = 1
-    else:
-        tmp[:, :, 0] = 1
+    tmp = eye(s, dtype=t_int32).repeat(b, 1, 1)  # prevent nan in MHA softmax on padding
     for i, d in enumerate(distances):
         s = d.size(0)
         if padding_left:

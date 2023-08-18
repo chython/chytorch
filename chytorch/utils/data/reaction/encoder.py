@@ -18,7 +18,7 @@
 #
 from chython import ReactionContainer
 from itertools import chain, repeat
-from torch import IntTensor, cat, zeros, int32, Size
+from torch import IntTensor, cat, zeros, int32, Size, eye
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
@@ -61,12 +61,7 @@ def collate_encoded_reactions(batch, *, padding_left: bool = False, collate_fn_m
 
     pa = pad_sequence(atoms, True)
     b, s = pa.shape
-    tmp = zeros(b, s, s, dtype=int32)
-    # prevent nan in MHA softmax on padding
-    if padding_left:
-        tmp[:, :, -1] = 1
-    else:
-        tmp[:, :, 0] = 1
+    tmp = eye(s, dtype=int32).repeat(b, 1, 1)  # prevent nan in MHA softmax on padding
     for n, d in enumerate(distances):
         s = d.size(0)
         if padding_left:
