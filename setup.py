@@ -24,7 +24,7 @@ from setuptools import setup, Extension, find_namespace_packages
 
 setup(
     name='chytorch',
-    version='1.50',
+    version='1.51',
     packages=find_namespace_packages(include=('chytorch.*',)),
     url='https://github.com/chython/chytorch',
     license='LGPLv3',

@@ -22,12 +22,12 @@ from pickle import loads
 from struct import Struct
 from torch import Tensor, tensor, float32, Size
 from torch.utils.data import Dataset
-from typing import List
+from typing import List, Tuple
 from zlib import decompress
 
 
 class StructUnpack(Dataset):
-    def __init__(self, data: List[bytes], format_spec: str, dtype=float32):
+    def __init__(self, data: List[bytes], format_spec: str, dtype=float32, shape: Tuple[int, ...] = None):
         """
         Unpack python.struct packed tensors to 1d-tensors.
         Useful in case of highly compressed data.
@@ -36,14 +36,19 @@ class StructUnpack(Dataset):
         :param format_spec: python.struct format for unpacking data
             (e.g. '>bbl' - 2 one-byte ints and 1 big-endian 4 byte int)
         :param dtype: output tensor dtype
+        :param shape: reshape unpacked 1-D tensor
         """
         self.data = data
         self.format_spec = format_spec
         self.dtype = dtype
+        self.shape = shape
         self._struct = Struct(format_spec)
 
     def __getitem__(self, item: int) -> Tensor:
-        return tensor(self._struct.unpack(self.data[item]), dtype=self.dtype)
+        x = tensor(self._struct.unpack(self.data[item]), dtype=self.dtype)
+        if self.shape is not None:
+            return x.reshape(self.shape)
+        return x
 
     def __len__(self):
         return len(self.data)
@@ -57,20 +62,24 @@ class StructUnpack(Dataset):
 
 
 class TensorUnpack(Dataset):
-    def __init__(self, data: List[bytes], dtype=float32):
+    def __init__(self, data: List[bytes], dtype=float32, shape: Tuple[int, ...] = None):
         """
         Unpack raw tensor byte buffers to 1d-tensors.
 
         :param data: packed data
         :param dtype: dtype of buffer
+        :param shape: reshape unpacked 1-D tensor
         """
         self.data = data
         self.dtype = dtype
+        self.shape = shape
 
     def __getitem__(self, item: int) -> Tensor:
         from torch import frombuffer  # torch>=1.10
-
-        return frombuffer(self.data[item], dtype=self.dtype)
+        x = frombuffer(self.data[item], dtype=self.dtype)
+        if self.shape is not None:
+            return x.reshape(self.shape)
+        return x
 
     def __len__(self):
         return len(self.data)
