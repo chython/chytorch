@@ -24,7 +24,7 @@ from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Union
 from ..molecule import MoleculeDataset
-from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
+from .._abc import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
 class ReactionEncoderDataPoint(NamedTuple):

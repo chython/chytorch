@@ -53,4 +53,5 @@ __all__ = ['MoleculeDataset', 'collate_molecules',
            'Decompress',
            'Decode',
            'chained_collate',
-           'skip_none_collate']
+           'skip_none_collate',
+           'load_lmdb', 'load_lmdb_zstd_dict']

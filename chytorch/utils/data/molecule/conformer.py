@@ -25,7 +25,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Tuple, Union
-from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
+from .._abc import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
 class ConformerDataPoint(NamedTuple):

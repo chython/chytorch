@@ -19,12 +19,10 @@
 from random import shuffle
 from torch import Size
 from torch.utils.data import Dataset
-from typing import List, NamedTuple, NamedTupleMeta, Sequence, TypeVar
+from typing import List, Sequence, TypeVar
+from .lmdb import LMDBMapper
+from .unpack import Decompress
 
-try:
-    from torch.utils.data._utils.collate import default_collate_fn_map
-except ImportError:  # ad-hoc for pytorch<1.13
-    default_collate_fn_map = {}
 
 element = TypeVar('element')
 
@@ -53,6 +51,51 @@ def skip_none_collate(collate_fn):
     def w(batch):
         return collate_fn([x for x in batch if x is not None])
     return w
+
+
+def load_lmdb(path, size=4, order='big'):
+    """
+    Helper for loading LMDB datasets with continuous integer keys.
+    Note: keys of datapoints should be positive indices coded as bytes with size `size` and `order` endianness.
+
+    Example structure of DB with a key size=2:
+        0000 (0): first record
+        0001 (1): second record
+        ...
+        ffff (65535): last record
+
+    :param path: path to the database
+    :param size: key size in bytes
+    :param order: big or little endian
+    """
+    db = LMDBMapper(path)
+    db._mapping = ByteRange(len(db), size=size, order=order)
+    return db
+
+
+def load_lmdb_zstd_dict(path, size=4, order='big', key=b'\xff\xff\xff\xff'):
+    """
+    Helper for loading LMDB datasets with continuous integer keys compressed by zstd with external dictionary.
+    Note: keys of datapoints should be positive indices coded as bytes with size `size` and `order` endianness.
+        Database should contain one additional record with key `key` with decompression dictionary.
+
+    Example structure of DB a key size=2:
+        ffff (65535): zstd dict bytes
+        0000 (0): first record
+        0001 (1): second record
+        ...
+        fffe (65534): last record
+
+    :param path: path to the database
+    :param key: LMDB entry with dictionary data
+    :param size: key size in bytes
+    :param order: big or little endian
+    """
+    db = LMDBMapper(path)
+    db._mapping = ByteRange(len(db) - 1, size=size, order=order)
+    db[0]  # connect db
+    dc = Decompress(db, 'zstd', db._tr.get(key))
+    return dc
 
 
 class SizedList(List):
@@ -130,32 +173,9 @@ class SuppressException(Dataset):
         raise IndexError
 
 
-# https://stackoverflow.com/a/50369521
-if hasattr(NamedTuple, '__mro_entries__'):
-    # Python 3.9 fixed and broke multiple inheritance in a different way
-    # see https://github.com/python/cpython/issues/88089
-    from typing import _NamedTuple
-
-    NamedTuple = _NamedTuple
-
-
-class MultipleInheritanceNamedTupleMeta(NamedTupleMeta):
-    def __new__(mcls, typename, bases, ns):
-        if NamedTuple in bases:
-            base = super().__new__(mcls, '_base_' + typename, bases, ns)
-            bases = (base, *(b for b in bases if not isinstance(b, NamedTuple)))
-        return super(NamedTupleMeta, mcls).__new__(mcls, typename, bases, ns)
-
-
-class DataTypeMixin(metaclass=MultipleInheritanceNamedTupleMeta):
-    def to(self, *args, **kwargs):
-        return type(self)(*(x.to(*args, **kwargs) for x in self))
-
-    def cpu(self, *args, **kwargs):
-        return type(self)(*(x.cpu(*args, **kwargs) for x in self))
-
-    def cuda(self, *args, **kwargs):
-        return type(self)(*(x.cuda(*args, **kwargs) for x in self))
-
-
-__all__ = ['SizedList', 'ShuffledList', 'SuppressException', 'ByteRange', 'chained_collate', 'skip_none_collate']
+__all__ = ['SizedList',
+           'ShuffledList',
+           'SuppressException',
+           'ByteRange',
+           'chained_collate', 'skip_none_collate',
+           'load_lmdb', 'load_lmdb_zstd_dict']

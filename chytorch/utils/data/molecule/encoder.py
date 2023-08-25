@@ -28,7 +28,7 @@ from torchtyping import TensorType
 from typing import Sequence, Union
 from zlib import decompress
 from ._unpack import unpack
-from .._utils import DataTypeMixin, NamedTuple, default_collate_fn_map
+from .._abc import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
 class MoleculeDataPoint(NamedTuple):
