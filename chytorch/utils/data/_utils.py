@@ -159,6 +159,8 @@ class SuppressException(Dataset):
     def __getitem__(self, item):
         try:
             return self.dataset[item]
+        except IndexError:
+            raise
         except Exception:
             pass
 

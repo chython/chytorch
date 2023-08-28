@@ -23,7 +23,6 @@ from .molecule import *
 from .postgres import *
 from .product import *
 from .reaction import *
-from .sampler import *
 from .smiles import *
 from .tokenizer import *
 from .unpack import *
@@ -35,12 +34,12 @@ __all__ = ['MoleculeDataset', 'collate_molecules',
            'ReactionEncoderDataset', 'collate_encoded_reactions',
            'MoleculeProductDataset',
            'AttachedMethylDataset',
+           'RDKitConformerDataset',
            'PermutedReactionDataset', 'ReactionLabelsDataset',
            'SMILESDataset',
            'SMILESTokenizerDataset', 'collate_sequences',
            'ProductDataset',
            'CombinationsDataset',
-           'StructureSampler', 'DistributedStructureSampler',
            'SuppressException', 'SizedList', 'ShuffledList',
            'ByteRange',
            'LMDBMapper',
