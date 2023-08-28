@@ -60,6 +60,8 @@ class RDKitConformerDataset(Dataset):
             return choice(self.cache[item])
 
         confs = generate(self.molecules[item], self.num_conf, self.max_attempts, self.prune)
+        if not confs:
+            raise ValueError("conformer generation failed")
 
         if self.cache is not None:
             self.cache[item] = confs
