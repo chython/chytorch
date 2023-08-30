@@ -20,7 +20,7 @@ from torch import Tensor
 from torch.nn import Dropout, GELU, LayerNorm, Module
 from typing import Tuple, Optional
 from .attention import MultiheadAttention
-from .linear import Linear
+from ..lora import Linear
 
 
 class EncoderLayer(Module):

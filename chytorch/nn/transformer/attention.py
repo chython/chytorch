@@ -22,7 +22,7 @@ from torch.nn import Module
 from torch.nn.functional import dropout
 from typing import Optional, Tuple
 from warnings import warn
-from .linear import Linear
+from ..lora import Linear
 
 
 def _update_lora(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
@@ -124,9 +124,9 @@ class MultiheadAttention(Module):
             cv[-tgt_len:] = v
             k, v = ck, cv
 
-        q = q.reshape(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)  # B*HxSxE
-        k = k.reshape(-1, bsz * self.num_heads, self.head_dim).permute(1, 2, 0)  # B*HxExS
-        v = v.reshape(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)  # B*HxSxE
+        q = q.reshape(tgt_len, -1, self.head_dim).transpose(0, 1)  # B*HxSxE
+        k = k.reshape(tgt_len, -1, self.head_dim).permute(1, 2, 0)  # B*HxExS
+        v = v.reshape(tgt_len, -1, self.head_dim).transpose(0, 1)  # B*HxSxE
 
         if attn_mask is None:
             a = bmm(q, k) * self._scale

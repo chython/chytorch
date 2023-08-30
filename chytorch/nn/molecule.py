@@ -22,7 +22,8 @@ from torch.nn import GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
 from typing import Optional, Tuple, List
 from warnings import warn
-from .lora import Embedding, EncoderLayer
+from .lora import Embedding
+from .transformer import EncoderLayer
 from ..utils.data import MoleculeDataBatch
 
 

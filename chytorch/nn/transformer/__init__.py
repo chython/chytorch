@@ -16,8 +16,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-from .embedding import *
-from .linear import *
+from .attention import *
+from .encoder import *
 
 
-__all__ = ['Embedding', 'Linear']
+__all__ = ['EncoderLayer', 'MultiheadAttention']
