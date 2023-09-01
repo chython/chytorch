@@ -35,7 +35,7 @@ class DatasetTransformer:
         p = Pipeline([('smiles', sw), ('molecule', mw)])
         p.transform(['CN(C)C', 'CCO'])
     """
-    def __init__(self, dataset: Type[Dataset], collate_fn=None, *args, **kwargs):
+    def __init__(self, dataset: Type[Dataset], *args, collate_fn=None, **kwargs):
         """
         :param dataset: class to wrap
         :param collate_fn: apply batch collate function to the output of dataset. disabled by default
@@ -69,26 +69,34 @@ class DatasetTransformer:
         return batch
 
 
-class ModelEstimator:
+class ModelEstimatorTransformer:
     """
     Wrap Neural network to provide sklearn estimator API for pipeline building.
 
         from sklearn.pipeline import Pipeline
-        from torch.nn import Sequential, Linear
-        from chytorch.nn import MoleculeEncoder, Slicer
+        from chytorch.nn import MoleculeEncoder
 
-        net = Sequential(MoleculeEncoder(), Slicer(slice(None), -1), Linear(1024, 1))
-        sm = ModelEstimator(net)
+        net = MoleculeEncoder()
+        sm = ModelEstimatorTransformer(net)
         p = Pipeline([('smiles', sw), ('molecule', mw), ('model', sm)])
         p.predict(['CN(C)C', 'CCO'])
     """
-    def __init__(self, model: Module, **kwargs):
+    def __init__(self, model: Module, *args, **kwargs):
         """
         :param model: pytorch model
-        :param kwargs: params for proper model initialization from pickle dump
+        :param args kwargs: params for proper model initialization from pickle dump
         """
         self.model = model.eval()
+        self.args = args
         self.kwargs = kwargs
+
+    @no_grad()
+    def predict(self, X):
+        return self.model(X)
+
+    @no_grad()
+    def transform(self, X):
+        return self.model(X)
 
     def fit(self, X, y):
         """
@@ -96,17 +104,17 @@ class ModelEstimator:
         """
         return self
 
-    @no_grad()
-    def predict(self, X):
-        return self.model(X)
+    def fit_transform(self, X, y=None):
+        return self.transform(X)
 
     def __getstate__(self):
-        return {'model': type(self.model), 'kwargs': self.kwargs, 'weights': self.model.state_dict()}
+        return {'model': type(self.model), 'args': self.args, 'kwargs': self.kwargs, 'weights': self.model.state_dict()}
 
     def __setstate__(self, state):
-        self.model = state['model'](**state['kwargs']).eval()
+        self.model = state['model'](*state['args'], **state['kwargs']).eval()
         self.model.load_state_dict(state['weights'])
+        self.args = state['args']
         self.kwargs = state['kwargs']
 
 
-__all__ = ['DatasetTransformer', 'ModelEstimator']
+__all__ = ['DatasetTransformer', 'ModelEstimatorTransformer']

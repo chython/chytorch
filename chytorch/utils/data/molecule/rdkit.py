@@ -29,7 +29,9 @@ def generate(smiles, num_conf=10, max_attempts=100, prune=.2):
 
     m = MolFromSmiles(smiles)
     m = AddHs(m)
-    EmbedMultipleConfs(m, numConfs=num_conf, maxAttempts=max_attempts, pruneRmsThresh=prune)
+    if not EmbedMultipleConfs(m, numConfs=num_conf, maxAttempts=max_attempts, pruneRmsThresh=prune):
+        # try again ignoring chirality
+        EmbedMultipleConfs(m, numConfs=num_conf, maxAttempts=max_attempts, pruneRmsThresh=prune, enforceChirality=False)
     m = RemoveAllHs(m)
     a = array([x.GetAtomicNum() for x in m.GetAtoms()])
     h = array([x.GetNumExplicitHs() for x in m.GetAtoms()])
