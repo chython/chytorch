@@ -18,7 +18,7 @@
 #
 from torch import Tensor
 from torch.nn import Dropout, GELU, LayerNorm, Module
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Type
 from .attention import MultiheadAttention
 from ..lora import Linear
 
@@ -39,10 +39,10 @@ class EncoderLayer(Module):
     :param lora_dropout: LoRA input dropout
     """
     def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1, activation=GELU, layer_norm_eps=1e-5,
-                 norm_first: bool = False, lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
+                 norm_first: bool = False, attention: Type[Module] = MultiheadAttention,
+                 lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         super().__init__()
-        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout,
-                                            lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+        self.self_attn = attention(d_model, nhead, dropout, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)  # noqa
 
         self.linear1 = Linear(d_model, dim_feedforward, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
         self.linear2 = Linear(dim_feedforward, d_model, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
@@ -54,10 +54,11 @@ class EncoderLayer(Module):
         self.activation = activation()
         self.norm_first = norm_first
 
-    def forward(self, x: Tensor, attn_mask: Optional[Tensor], *, cache: Optional[Tuple[Tensor, Tensor]] = None,
+    def forward(self, x: Tensor, attn_mask: Optional[Tensor], pad_mask: Optional[Tensor] = None, *,
+                cache: Optional[Tuple[Tensor, Tensor]] = None,
                 need_embedding: bool = True, need_weights: bool = False) -> Tuple[Optional[Tensor], Optional[Tensor]]:
         nx = self.norm1(x) if self.norm_first else x  # pre-norm or post-norm
-        e, a = self.self_attn(nx, attn_mask, cache=cache, need_weights=need_weights)
+        e, a = self.self_attn(nx, attn_mask, pad_mask, cache=cache, need_weights=need_weights)
 
         if need_embedding:
             x = x + self.dropout1(e)

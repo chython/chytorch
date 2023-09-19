@@ -77,8 +77,7 @@ default_collate_fn_map[ConformerDataPoint] = collate_conformers  # add auto_coll
 class ConformerDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, Tuple[ndarray, ndarray, ndarray]]], *,
                  short_cutoff: float =.9, long_cutoff: float = 5., precision: float = .05,
-                 add_cls: bool = True, unpack: bool = True, xyz: bool = True,
-                 distance_masking_rate: float = 0, noisy_distance: bool = False):
+                 add_cls: bool = True, unpack: bool = True, xyz: bool = True, noisy_distance: bool = False):
         """
         convert molecules to tuple of:
             atoms vector with atomic numbers + 2,
@@ -101,7 +100,6 @@ class ConformerDataset(Dataset):
             predefined data structure: (vector of atomic numbers, vector of neighbors,
                                         matrix of coordinates or distances).
         :param xyz: provided xyz or distance matrix if unpack=False
-        :param distance_masking_rate: probability of masking non-self-loop by 0
         :param noisy_distance: add noise in [-1, 1] range into binarized distance
         """
         if unpack:
@@ -116,7 +114,6 @@ class ConformerDataset(Dataset):
         self.add_cls = add_cls
         self.unpack = unpack
         self.xyz = xyz
-        self.distance_masking_rate = distance_masking_rate
         self.noisy_distance = noisy_distance
 
         # discrete bins intervals. first 3 bins reserved for shifted coding
@@ -164,8 +161,6 @@ class ConformerDataset(Dataset):
         dist = digitize(dist, self._bins)
         if self.noisy_distance:
             dist += (dist > 2) * self.generator.integers(-1, 1, size=dist.shape, endpoint=True)
-        if self.distance_masking_rate:
-            dist *= ((dist <= 2) | (self.generator.random(dist.shape) > self.distance_masking_rate))
         if self.add_cls:  # set cls to atoms distance equal to 0
             tmp = ones((len(atoms), len(atoms)), dtype=int32)
             tmp[1:, 1:] = dist

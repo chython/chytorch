@@ -22,9 +22,9 @@ from torch.nn import GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
 from typing import Optional, Tuple, List
 from warnings import warn
-from .lora import Embedding
-from .transformer import EncoderLayer
-from ..utils.data import MoleculeDataBatch
+from ..lora import Embedding
+from ..transformer import EncoderLayer
+from ...utils.data import MoleculeDataBatch
 
 
 def _update(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
@@ -99,8 +99,8 @@ class MoleculeEncoder(Module):
         self._register_load_state_dict_pre_hook(_update)
 
     def forward(self, batch: MoleculeDataBatch, /, *,
-                cache: Optional[List[Tuple[TensorType['atoms', 'batch', 'embedding'],
-                                           TensorType['atoms', 'batch', 'embedding']]]] = None) -> \
+                cache: Optional[List[Tuple[TensorType['batch', 'atoms', 'embedding'],
+                                           TensorType['batch', 'atoms', 'embedding']]]] = None) -> \
             TensorType['batch', 'atoms', 'embedding']:
         """
         Use 0 for padding.
@@ -122,7 +122,7 @@ class MoleculeEncoder(Module):
 
         for lr, d, c in zip(self.layers, self.distance_encoders, cache):
             if d is not None:
-                d_mask = d(distances).permute(0, 3, 1, 2).flatten(end_dim=1)  # BxNxNxH > BxHxNxN > B*HxNxN
+                d_mask = d(distances).permute(0, 3, 1, 2)  # BxNxNxH > BxHxNxN
             # else: reuse previously calculated mask
             x, _ = lr(x, d_mask, cache=c)  # noqa
 

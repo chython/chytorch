@@ -17,7 +17,7 @@
 #  along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
 from math import sqrt
-from torch import baddbmm, bmm, softmax, cat, Tensor
+from torch import softmax, cat, Tensor
 from torch.nn import Module
 from torch.nn.functional import dropout
 from typing import Optional, Tuple
@@ -73,7 +73,7 @@ class MultiheadAttention(Module):
     """
     LoRA wrapped Multi-Head Attention
     """
-    def __init__(self, embed_dim, num_heads, dropout=0., separate_proj: bool = False,
+    def __init__(self, embed_dim, num_heads, dropout=.1, separate_proj: bool = False,
                  lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
         :param embed_dim: the size of each embedding vector
@@ -104,43 +104,46 @@ class MultiheadAttention(Module):
             self._register_load_state_dict_pre_hook(_update_packed)
         self.o_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
 
-    def forward(self, x: Tensor, attn_mask: Optional[Tensor], *, cache: Optional[Tuple[Tensor, Tensor]] = None,
+    def forward(self, x: Tensor, attn_mask: Optional[Tensor], pad_mask: Optional[Tensor] = None, *,
+                cache: Optional[Tuple[Tensor, Tensor]] = None,
                 need_weights: bool = True) -> Tuple[Tensor, Optional[Tensor]]:
         bsz, tgt_len, _ = x.shape
-        x = x.transpose(1, 0)  # switch batch and sequence dims
 
         # do projection
         if self.separate_proj:
-            q = self.q_proj(x)
-            k = self.k_proj(x)
-            v = self.v_proj(x)
+            q = self.q_proj(x)  # BxTxH*E
+            k = self.k_proj(x)  # BxSxH*E (KV seq len can differ from tgt_len with enabled cache trick)
+            v = self.v_proj(x)  # BxSxH*E
         else:  # optimized
             q, k, v = self.qkv_proj(x).chunk(3, dim=-1)
 
         if cache is not None:
-            # inference caching. batch should be left padded. shape should be SxBxE
+            # inference caching. batch should be left padded. shape should be BxSxH*E
             ck, cv = cache
-            ck[-tgt_len:] = k
-            cv[-tgt_len:] = v
-            k, v = ck, cv
+            ck[:bsz, -tgt_len:] = k
+            cv[:bsz, -tgt_len:] = v
+            k, v = ck[:bsz], cv[:bsz]
 
-        q = q.reshape(tgt_len, -1, self.head_dim).transpose(0, 1)  # B*HxSxE
-        k = k.reshape(tgt_len, -1, self.head_dim).permute(1, 2, 0)  # B*HxExS
-        v = v.reshape(tgt_len, -1, self.head_dim).transpose(0, 1)  # B*HxSxE
+        # BxTxH*E > BxTxHxE > BxHxTxE
+        q = q.reshape(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        # BxSxH*E > BxSxHxE > BxHxExS
+        k = k.reshape(bsz, -1, self.num_heads, self.head_dim).permute(0, 2, 3, 1)
+        # BxSxH*E > BxSxHxE > BxHxSxE
+        v = v.reshape(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
 
-        if attn_mask is None:
-            a = bmm(q, k) * self._scale
-        else:
-            a = baddbmm(attn_mask, q, k, alpha=self._scale)  # scaled dot-product with bias
+        # BxHxTxE @ BxHxExS > BxHxTxS
+        a = (q @ k) * self._scale
+        if attn_mask is not None:
+            a = a + attn_mask
         a = softmax(a, dim=-1)
         if self.training and self.dropout:
             a = dropout(a, self.dropout)
 
-        o = bmm(a, v).transpose(0, 1).contiguous().view(-1, self.embed_dim)
-        o = self.o_proj(o).view(tgt_len, bsz, -1).transpose(0, 1)  # switch dimensions back
+        # BxHxTxS @ BxHxSxE > BxHxTxE > BxTxHxE > BxTxH*E
+        o = (a @ v).transpose(1, 2).flatten(start_dim=2)
+        o = self.o_proj(o)
 
         if need_weights:
-            a = a.view(bsz, -1, tgt_len, tgt_len)
             a = a.sum(dim=1) / self.num_heads
             return o, a
         else:
