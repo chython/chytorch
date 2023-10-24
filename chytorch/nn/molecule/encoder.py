@@ -49,7 +49,7 @@ class MoleculeEncoder(Module):
                  zero_bias: bool = False, perturbation: float = 0.,
                  lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
-        Molecule TransformerEncoder layer.
+        Molecule Graphormer from https://doi.org/10.1021/acs.jcim.2c00344.
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.
@@ -109,7 +109,7 @@ class MoleculeEncoder(Module):
         """
         Use 0 for padding.
         Atoms should be coded by atomic numbers + 2.
-        Token 1 reserved for cls token, 2 reserved for reaction cls or training tricks like MLM.
+        Token 1 reserved for cls token, 2 reserved for molecule cls or training tricks like MLM.
         Neighbors should be coded from 2 (means no neighbors) to max neighbors + 2.
         Neighbors equal to 1 reserved for training tricks like MLM. Use 0 for cls.
         Distances should be coded from 2 (means self-loop) to max_distance + 2.

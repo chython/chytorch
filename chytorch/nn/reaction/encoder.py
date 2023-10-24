@@ -34,7 +34,7 @@ class ReactionEncoder(Module):
                  n_ex_head: int = 4, num_in_layers: int = 8, num_ex_layers: int = 8,
                  dim_feedforward: int = 3072, dropout: float = 0.1, activation=GELU, layer_norm_eps: float = 1e-5):
         """
-        Reaction TransformerEncoder layer.
+        Reaction Graphormer from https://doi.org/10.1021/acs.jcim.2c00344.
 
         :param max_neighbors: maximum atoms neighbors count.
         :param max_distance: maximal distance between atoms.

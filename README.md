@@ -97,3 +97,9 @@ All wrappers have `torch.utils.data.Dataset` interface.
 * `PostgresMapper` - Postgres DB table to dataset mapper.
 * `SMILESTokenizerDataset` - on-the-fly generator of tokenized SMILES.
 * `TensorUnpack`, `StructUnpack`, `PickleUnpack` - bytes to tensor/object unpackers
+
+
+Publications
+------------
+
+[1](https://doi.org/10.1021/acs.jcim.2c00344) Bidirectional Graphormer for Reactivity Understanding: Neural Network Trained to Reaction Atom-to-Atom Mapping Task

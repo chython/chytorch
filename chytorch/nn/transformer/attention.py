@@ -93,10 +93,9 @@ class MultiheadAttention(Module):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.dropout = dropout
-        self.head_dim = embed_dim // num_heads
         self.lora_r = lora_r
         self.separate_proj = separate_proj or bool(lora_r)
-        self._scale = 1 / sqrt(self.head_dim)
+        self._scale = 1 / sqrt(embed_dim / num_heads)
 
         if separate_proj or lora_r:
             self.q_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
@@ -110,10 +109,7 @@ class MultiheadAttention(Module):
 
     def forward(self, x: Tensor, attn_mask: Optional[Tensor], pad_mask: Optional[Tensor] = None, *,
                 cache: Optional[Tuple[Tensor, Tensor]] = None,
-                need_weights: bool = True) -> Tuple[Tensor, Optional[Tensor]]:
-        bsz, tgt_len, _ = x.shape
-
-        # do projection
+                need_weights: bool = False) -> Tuple[Tensor, Optional[Tensor]]:
         if self.separate_proj:
             q = self.q_proj(x)  # BxTxH*E
             k = self.k_proj(x)  # BxSxH*E (KV seq len can differ from tgt_len with enabled cache trick)
@@ -123,17 +119,18 @@ class MultiheadAttention(Module):
 
         if cache is not None:
             # inference caching. batch should be left padded. shape should be BxSxH*E
+            bsz, tgt_len, _ = x.shape
             ck, cv = cache
             ck[:bsz, -tgt_len:] = k
             cv[:bsz, -tgt_len:] = v
             k, v = ck[:bsz], cv[:bsz]
 
         # BxTxH*E > BxTxHxE > BxHxTxE
-        q = q.reshape(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        q = q.unflatten(2, (self.num_heads, -1)).transpose(1, 2)
         # BxSxH*E > BxSxHxE > BxHxExS
-        k = k.reshape(bsz, -1, self.num_heads, self.head_dim).permute(0, 2, 3, 1)
+        k = k.unflatten(2, (self.num_heads, -1)).permute(0, 2, 3, 1)
         # BxSxH*E > BxSxHxE > BxHxSxE
-        v = v.reshape(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        v = v.unflatten(2, (self.num_heads, -1)).transpose(1, 2)
 
         # BxHxTxE @ BxHxExS > BxHxTxS
         a = (q @ k) * self._scale
@@ -144,7 +141,7 @@ class MultiheadAttention(Module):
             a = dropout(a, self.dropout)
 
         # BxHxTxS @ BxHxSxE > BxHxTxE > BxTxHxE > BxTxH*E
-        o = (a @ v).transpose(1, 2).flatten(start_dim=2)
+        o = (a @ v).transpose(1, 2).flatten(2)
         o = self.o_proj(o)
 
         if need_weights:
