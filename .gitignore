@@ -6,6 +6,10 @@
 __pycache__
 *.py[cod]
 *.pt
+*.so
+*.dll
+*.dynlib
+*.c
 
 .idea
 venv
