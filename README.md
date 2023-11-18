@@ -1,6 +1,5 @@
-<img src="https://github.com/chython/chytorch/assets/2013465/2985c43e-5b00-4ae4-9130-c01e28f6bdd9" width="100" height="100"> Chytorch [kʌɪtɔːrtʃ]
+<img src="https://github.com/chython/chytorch/assets/2013465/9e97e99b-060d-4beb-bd8c-80c895ac9b81" width="100" height="100"> Chytorch [kʌɪtɔːrtʃ]
 ====================
-
 
 Library for modeling molecules and reactions in torch way.
 
