@@ -1,0 +1,29 @@
+name: Build Python packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  binary:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-20.04]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip poetry twine
+    - name: Build wheel
+      run: |
+        poetry build -f wheel
+    - name: Publish package
+      run: |
+        twine upload -u __token__ -p ${{ secrets.PYPI_API_TOKEN }} --non-interactive --skip-existing dist/*

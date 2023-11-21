@@ -45,7 +45,7 @@ rdkit = ['rdkit']
 zstd = ['pyzstd']
 
 [build-system]
-requires = ['poetry-core', 'setuptools', 'cython>=3.0.5', 'numpy>=1.24']
+requires = ['poetry-core', 'setuptools', 'cython>=3.0.5', 'numpy>=1.23.3']
 build-backend = 'poetry.core.masonry.api'
 
 [tool.poetry.build]
