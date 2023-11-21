@@ -23,7 +23,7 @@
 from torch import Tensor
 from torch.nn import Dropout, GELU, LayerNorm, Module
 from typing import Tuple, Optional, Type
-from .attention import MultiheadAttention
+from .attention import GraphormerAttention
 from ..lora import Linear
 
 
@@ -43,7 +43,7 @@ class EncoderLayer(Module):
     :param lora_dropout: LoRA input dropout
     """
     def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1, activation=GELU, layer_norm_eps=1e-5,
-                 norm_first: bool = False, attention: Type[Module] = MultiheadAttention,
+                 norm_first: bool = False, attention: Type[Module] = GraphormerAttention,
                  lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         super().__init__()
         self.self_attn = attention(d_model, nhead, dropout, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)  # noqa

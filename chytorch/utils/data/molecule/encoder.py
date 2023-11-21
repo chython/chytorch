@@ -29,7 +29,6 @@ from torch.utils.data import Dataset
 from torchtyping import TensorType
 from typing import Sequence, Union
 from zlib import decompress
-from ._unpack import unpack
 from .._abc import DataTypeMixin, NamedTuple, default_collate_fn_map
 
 
@@ -113,10 +112,15 @@ class MoleculeDataset(Dataset):
     def __getitem__(self, item: int) -> MoleculeDataPoint:
         mol = self.molecules[item]
         if self.unpack:
-            if self.compressed:
-                mol = decompress(mol)
-            atoms, neighbors, distances, _ = unpack(mol, self.add_cls, self.max_neighbors, self.max_distance)
-            return MoleculeDataPoint(IntTensor(atoms), IntTensor(neighbors), IntTensor(distances))
+            try:
+                from ._unpack import unpack
+            except ImportError:  # windows?
+                mol = MoleculeContainer.unpack(mol, compressed=self.compressed)
+            else:
+                if self.compressed:
+                    mol = decompress(mol)
+                atoms, neighbors, distances, _ = unpack(mol, self.add_cls, self.max_neighbors, self.max_distance)
+                return MoleculeDataPoint(IntTensor(atoms), IntTensor(neighbors), IntTensor(distances))
 
         nc = self.max_neighbors
         if self.add_cls:

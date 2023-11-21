@@ -24,4 +24,5 @@ from .attention import *
 from .encoder import *
 
 
-__all__ = ['EncoderLayer', 'MultiheadAttention']
+__all__ = ['EncoderLayer',
+           'GraphormerAttention']

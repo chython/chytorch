@@ -22,6 +22,7 @@
 #
 from .activation import *
 from .converters import *
+from .losses import *
 from .molecule import *
 from .reaction import *
 from .slicer import *
@@ -32,5 +33,9 @@ __all__ = ['MoleculeEncoder',
            'ReactionEncoder',
            'Slicer',
            'VotingClassifier', 'VotingRegressor', 'BinaryVotingClassifier',
-           'PulingHardtanh', 'MultiTaskLoss',
+           'PulingHardtanh',
+           'MultiTaskLoss',
+           'CensoredLoss',
+           'MaskedNaNLoss',
+           'MSLELoss',
            'Converters', 'MultiColumnConverters']

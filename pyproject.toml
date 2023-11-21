@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "chytorch"
-version = "1.56"
-description = "Library for modeling molecules and reactions in torch way"
-authors = ["Ramil Nugmanov <nougmanoff@protonmail.com>"]
-license = "MIT"
-readme = "README.md"
-homepage = "https://github.com/chython/chytorch"
+name = 'chytorch'
+version = '1.57'
+description = 'Library for modeling molecules and reactions in torch way'
+authors = ['Ramil Nugmanov <nougmanoff@protonmail.com>']
+license = 'MIT'
+readme = 'README.md'
+homepage = 'https://github.com/chython/chytorch'
 classifiers=[
     'Environment :: Plugins',
     'Intended Audience :: Science/Research',
@@ -23,31 +23,31 @@ classifiers=[
 ]
 
 include = [
-    {path = "chytorch/utils/data/molecule/*.pyd", format = "wheel"},
-    {path = "chytorch/utils/data/molecule/*.so", format = "wheel"}
+    {path = 'chytorch/utils/data/molecule/*.pyd', format = 'wheel'},
+    {path = 'chytorch/utils/data/molecule/*.so', format = 'wheel'}
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
-torchtyping = "^0.1.4"
-chython = "^1.70"
-scipy = "^1.10"
-torch = ">=2.0,>=1.8"
-lmdb = {version="^1.4.1", optional = true}
-psycopg2-binary = {version="^2.9", optional = true}
-rdkit = {version = "^2023.9.1", optional = true}
-pyzstd = {version = "^0.15.9", optional = true}
+python = '>=3.8,<3.12'
+torchtyping = '^0.1.4'
+chython = '^1.70'
+scipy = '^1.10'
+torch = '>=2.0,>=1.8'
+lmdb = {version='^1.4.1', optional = true}
+psycopg2-binary = {version='^2.9', optional = true}
+rdkit = {version = '^2023.9.1', optional = true}
+pyzstd = {version = '^0.15.9', optional = true}
 
 [tool.poetry.extras]
-lmdb = ["lmdb"]
-postgres = ["psycopg2-binary"]
-rdkit = ["rdkit"]
-zstd = ["pyzstd"]
+lmdb = ['lmdb']
+postgres = ['psycopg2-binary']
+rdkit = ['rdkit']
+zstd = ['pyzstd']
 
 [build-system]
-requires = ["poetry-core", "setuptools", "cython>=3.0.5", "numpy>=1.24"]
-build-backend = "poetry.core.masonry.api"
+requires = ['poetry-core', 'setuptools', 'cython>=3.0.5', 'numpy>=1.24']
+build-backend = 'poetry.core.masonry.api'
 
 [tool.poetry.build]
-script = "build.py"
+script = 'build.py'
 generate-setup-file = false

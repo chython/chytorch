@@ -26,7 +26,7 @@ from torch.nn import Module
 from torch.nn.functional import dropout
 from typing import Optional, Tuple
 from warnings import warn
-from ..lora import Linear
+from ...lora import Linear
 
 
 def _update_lora(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
@@ -73,11 +73,11 @@ def _update_packed(state_dict, prefix, local_metadata, strict, missing_keys, une
         state_dict[prefix + 'qkv_proj.bias'] = cat([q_b, k_b, v_b])
 
 
-class MultiheadAttention(Module):
+class GraphormerAttention(Module):
     """
     LoRA wrapped Multi-Head Attention
     """
-    def __init__(self, embed_dim, num_heads, dropout=.1, separate_proj: bool = False,
+    def __init__(self, embed_dim, num_heads, dropout: float = .1, separate_proj: bool = False,
                  lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
         :param embed_dim: the size of each embedding vector
@@ -162,4 +162,4 @@ class MultiheadAttention(Module):
         self.o_proj.merge_lora()
 
 
-__all__ = ['MultiheadAttention']
+__all__ = ['GraphormerAttention']

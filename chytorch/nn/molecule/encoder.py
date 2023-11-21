@@ -20,11 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from itertools import repeat
 from torch import empty_like
 from torch.nn import GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
-from typing import Optional, Tuple, List
 from warnings import warn
 from ..lora import Embedding
 from ..transformer import EncoderLayer
@@ -102,10 +100,7 @@ class MoleculeEncoder(Module):
                                                   lora_dropout=lora_dropout) for _ in range(num_layers))
         self._register_load_state_dict_pre_hook(_update)
 
-    def forward(self, batch: MoleculeDataBatch, /, *,
-                cache: Optional[List[Tuple[TensorType['batch', 'atoms', 'embedding'],
-                                           TensorType['batch', 'atoms', 'embedding']]]] = None) -> \
-            TensorType['batch', 'atoms', 'embedding']:
+    def forward(self, batch: MoleculeDataBatch) -> TensorType['batch', 'atoms', 'embedding']:
         """
         Use 0 for padding.
         Atoms should be coded by atomic numbers + 2.
@@ -115,7 +110,6 @@ class MoleculeEncoder(Module):
         Distances should be coded from 2 (means self-loop) to max_distance + 2.
         Non-reachable atoms should be coded by 1.
         """
-        cache = repeat(None) if cache is None else iter(cache)
         atoms, neighbors, distances = batch
 
         # cls token in neighbors coded by 0
@@ -124,11 +118,11 @@ class MoleculeEncoder(Module):
         if self.perturbation and self.training:
             x = x + empty_like(x).uniform_(-self.perturbation, self.perturbation)
 
-        for lr, d, c in zip(self.layers, self.distance_encoders, cache):
+        for lr, d in zip(self.layers, self.distance_encoders):
             if d is not None:
                 d_mask = d(distances).permute(0, 3, 1, 2)  # BxNxNxH > BxHxNxN
             # else: reuse previously calculated mask
-            x, _ = lr(x, d_mask, cache=c)  # noqa
+            x, _ = lr(x, d_mask)  # noqa
 
         if self.post_norm:
             return self.norm(x)

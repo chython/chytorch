@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -20,21 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from torch.nn import Module
-from .functional import puling_hardtanh
+from .graphormer import *
 
 
-class PulingHardtanh(Module):
-    """
-    Hardtanh with inside-range puling gradient
-    """
-    def __init__(self, mn, mx):
-        super().__init__()
-        self.mn = mn
-        self.mx = mx
-
-    def forward(self, x):
-        return puling_hardtanh(x, self.mn, self.mx)
-
-
-__all__ = ['PulingHardtanh']
+__all__ = ['GraphormerAttention']
