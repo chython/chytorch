@@ -67,7 +67,7 @@ class ReactionEncoder(Module):
         atoms, neighbors, distances, roles = batch
         n = atoms.size(1)
         d_mask = zeros_like(roles, dtype=t_float).masked_fill_(roles == 0, -inf).view(-1, 1, 1, n)  # BxN > Bx1x1xN >
-        d_mask = d_mask.expand(-1, self.nhead, n, -1).flatten(end_dim=1)  # BxHxNxN > B*HxNxN
+        d_mask = d_mask.expand(-1, self.nhead, n, -1)  # > BxHxNxN
 
         # role is bert sentence encoder used to separate reactants from products and rxn CLS token coding.
         # multiplication by roles > 1 used to zeroing rxn cls token and padding. this zeroing gradients too.
