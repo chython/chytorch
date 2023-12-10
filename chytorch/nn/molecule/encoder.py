@@ -44,7 +44,7 @@ class MoleculeEncoder(Module):
                  num_layers: int = 8, dim_feedforward: int = 3072, shared_weights: bool = True,
                  shared_attention_bias: bool = True, dropout: float = 0.1, activation=GELU,
                  layer_norm_eps: float = 1e-5, norm_first: bool = False, post_norm: bool = False,
-                 zero_bias: bool = False, perturbation: float = 0.,
+                 zero_bias: bool = False, perturbation: float = 0., max_tokens: int = 121,
                  lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
         Molecule Graphormer from https://doi.org/10.1021/acs.jcim.2c00344.
@@ -61,10 +61,12 @@ class MoleculeEncoder(Module):
         :param lora_alpha: LoRA scaling factor.
         :param lora_dropout: LoRA input dropout.
         :param shared_attention_bias: use shared distance encoder or unique for each transformer layer.
+        :param max_tokens: number of tokens in the atom encoder embedding layer.
         """
+        assert max_tokens >= 121, 'at least 121 tokens should be'
         assert perturbation >= 0, 'zero or positive perturbation expected'
         super().__init__()
-        self.atoms_encoder = Embedding(121, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
+        self.atoms_encoder = Embedding(max_tokens, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
         self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
 
         self.shared_attention_bias = shared_attention_bias
@@ -83,6 +85,7 @@ class MoleculeEncoder(Module):
         self.max_neighbors = max_neighbors
         self.perturbation = perturbation
         self.num_layers = num_layers
+        self.max_tokens = max_tokens
         self.post_norm = post_norm
         if post_norm:
             assert norm_first, 'post_norm requires norm_first'
