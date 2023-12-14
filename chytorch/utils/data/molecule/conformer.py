@@ -28,8 +28,8 @@ from torch import IntTensor, Size, zeros, ones as t_ones, int32 as t_int32, eye
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from typing import Sequence, Tuple, Union
-from .._abc import DataTypeMixin, NamedTuple, default_collate_fn_map
+from typing import Sequence, Tuple, Union, NamedTuple
+from .._abc import default_collate_fn_map
 
 
 class ConformerDataPoint(NamedTuple):
@@ -38,10 +38,19 @@ class ConformerDataPoint(NamedTuple):
     distances: TensorType['atoms', 'atoms', int]
 
 
-class ConformerDataBatch(NamedTuple, DataTypeMixin):
+class ConformerDataBatch(NamedTuple):
     atoms: TensorType['batch', 'atoms', int]
     hydrogens: TensorType['batch', 'atoms', int]
     distances: TensorType['batch', 'atoms', 'atoms', int]
+
+    def to(self, *args, **kwargs):
+        return ConformerDataBatch(*(x.to(*args, **kwargs) for x in self))
+
+    def cpu(self, *args, **kwargs):
+        return ConformerDataBatch(*(x.cpu(*args, **kwargs) for x in self))
+
+    def cuda(self, *args, **kwargs):
+        return ConformerDataBatch(*(x.cuda(*args, **kwargs) for x in self))
 
 
 def collate_conformers(batch, *, padding_left: bool = False, collate_fn_map=None) -> ConformerDataBatch:

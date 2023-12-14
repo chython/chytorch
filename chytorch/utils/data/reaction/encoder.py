@@ -26,9 +26,9 @@ from torch import IntTensor, cat, zeros, int32, Size, eye
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from typing import Sequence, Union
+from typing import Sequence, Union, NamedTuple
 from ..molecule import MoleculeDataset
-from .._abc import DataTypeMixin, NamedTuple, default_collate_fn_map
+from .._abc import default_collate_fn_map
 
 
 class ReactionEncoderDataPoint(NamedTuple):
@@ -38,11 +38,20 @@ class ReactionEncoderDataPoint(NamedTuple):
     roles: TensorType['atoms', int]
 
 
-class ReactionEncoderDataBatch(NamedTuple, DataTypeMixin):
+class ReactionEncoderDataBatch(NamedTuple):
     atoms: TensorType['batch', 'atoms', int]
     neighbors: TensorType['batch', 'atoms', int]
     distances: TensorType['batch', 'atoms', 'atoms', int]
     roles: TensorType['batch', 'atoms', int]
+
+    def to(self, *args, **kwargs):
+        return ReactionEncoderDataBatch(*(x.to(*args, **kwargs) for x in self))
+
+    def cpu(self, *args, **kwargs):
+        return ReactionEncoderDataBatch(*(x.cpu(*args, **kwargs) for x in self))
+
+    def cuda(self, *args, **kwargs):
+        return ReactionEncoderDataBatch(*(x.cuda(*args, **kwargs) for x in self))
 
 
 def collate_encoded_reactions(batch, *, padding_left: bool = False, collate_fn_map=None) -> ReactionEncoderDataBatch:

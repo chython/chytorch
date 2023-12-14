@@ -27,9 +27,9 @@ from torch import IntTensor, Size, int32, ones as t_ones, zeros, eye
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from typing import Sequence, Union
+from typing import Sequence, Union, NamedTuple
 from zlib import decompress
-from .._abc import DataTypeMixin, NamedTuple, default_collate_fn_map
+from .._abc import default_collate_fn_map
 
 
 class MoleculeDataPoint(NamedTuple):
@@ -38,10 +38,19 @@ class MoleculeDataPoint(NamedTuple):
     distances: TensorType['atoms', 'atoms', int]
 
 
-class MoleculeDataBatch(NamedTuple, DataTypeMixin):
+class MoleculeDataBatch(NamedTuple):
     atoms: TensorType['batch', 'atoms', int]
     neighbors: TensorType['batch', 'atoms', int]
     distances: TensorType['batch', 'atoms', 'atoms', int]
+
+    def to(self, *args, **kwargs):
+        return MoleculeDataBatch(*(x.to(*args, **kwargs) for x in self))
+
+    def cpu(self, *args, **kwargs):
+        return MoleculeDataBatch(*(x.cpu(*args, **kwargs) for x in self))
+
+    def cuda(self, *args, **kwargs):
+        return MoleculeDataBatch(*(x.cuda(*args, **kwargs) for x in self))
 
 
 def collate_molecules(batch, *, padding_left: bool = False, collate_fn_map=None) -> MoleculeDataBatch:
