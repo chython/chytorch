@@ -1,6 +1,6 @@
 [tool.poetry]
 name = 'chytorch'
-version = '1.60'
+version = '1.61'
 description = 'Library for modeling molecules and reactions in torch way'
 authors = ['Ramil Nugmanov <nougmanoff@protonmail.com>']
 license = 'MIT'

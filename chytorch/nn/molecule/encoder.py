@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2021-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -20,10 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from torch import empty_like
 from torch.nn import GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
 from warnings import warn
+from .embedding import EmbeddingBag
 from ..lora import Embedding
 from ..transformer import EncoderLayer
 from ...utils.data import MoleculeDataBatch
@@ -34,6 +34,10 @@ def _update(state_dict, prefix, local_metadata, strict, missing_keys, unexpected
         warn('fixed chytorch<1.37 checkpoint', DeprecationWarning)
         state_dict[prefix + 'neighbors_encoder.weight'] = state_dict.pop(prefix + 'centrality_encoder.weight')
         state_dict[prefix + 'distance_encoder.weight'] = state_dict.pop(prefix + 'spatial_encoder.weight')
+    if prefix + 'atoms_encoder.weight' in state_dict:
+        warn('fixed chytorch<1.61 checkpoint', DeprecationWarning)
+        state_dict[prefix + 'embedding.atoms_encoder.weight'] = state_dict.pop(prefix + 'atoms_encoder.weight')
+        state_dict[prefix + 'embedding.neighbors_encoder.weight'] = state_dict.pop(prefix + 'neighbors_encoder.weight')
 
 
 class MoleculeEncoder(Module):
@@ -63,11 +67,8 @@ class MoleculeEncoder(Module):
         :param shared_attention_bias: use shared distance encoder or unique for each transformer layer.
         :param max_tokens: number of tokens in the atom encoder embedding layer.
         """
-        assert max_tokens >= 121, 'at least 121 tokens should be'
-        assert perturbation >= 0, 'zero or positive perturbation expected'
         super().__init__()
-        self.atoms_encoder = Embedding(max_tokens, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
-        self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
+        self.embedding = EmbeddingBag(max_neighbors, d_model, perturbation, max_tokens, lora_r, lora_alpha)
 
         self.shared_attention_bias = shared_attention_bias
         if shared_attention_bias:
@@ -115,11 +116,7 @@ class MoleculeEncoder(Module):
         """
         atoms, neighbors, distances = batch
 
-        # cls token in neighbors coded by 0
-        x = self.atoms_encoder(atoms) + self.neighbors_encoder(neighbors)
-
-        if self.perturbation and self.training:
-            x = x + empty_like(x).uniform_(-self.perturbation, self.perturbation)
+        x = self.embedding(atoms, neighbors)
 
         for lr, d in zip(self.layers, self.distance_encoders):
             if d is not None:
@@ -135,8 +132,7 @@ class MoleculeEncoder(Module):
         """
         Transform LoRA layers to normal
         """
-        self.atoms_encoder.merge_lora()
-        self.neighbors_encoder.merge_lora()
+        self.embedding.merge_lora()
         for layer in self.layers:
             layer.merge_lora()
 
@@ -149,6 +145,16 @@ class MoleculeEncoder(Module):
     def spatial_encoder(self):
         warn('spatial_encoder renamed to distance_encoder in chytorch 1.37', DeprecationWarning)
         return self.distance_encoder
+
+    @property
+    def atoms_encoder(self):
+        warn('neighbors_encoder moved to embedding submodule in chytorch 1.61', DeprecationWarning)
+        return self.embedding.atoms_encoder
+
+    @property
+    def neighbors_encoder(self):
+        warn('neighbors_encoder moved to embedding submodule in chytorch 1.61', DeprecationWarning)
+        return self.embedding.neighbors_encoder
 
 
 __all__ = ['MoleculeEncoder']
