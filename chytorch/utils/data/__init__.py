@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2021-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -27,6 +27,7 @@ from .molecule import *
 from .postgres import *
 from .product import *
 from .reaction import *
+from .sampler import *
 from .smiles import *
 from .tokenizer import *
 from .unpack import *
@@ -57,4 +58,7 @@ __all__ = ['MoleculeDataset', 'collate_molecules',
            'Decode',
            'chained_collate',
            'skip_none_collate',
-           'load_lmdb', 'load_lmdb_zstd_dict']
+           'load_lmdb', 'load_lmdb_zstd_dict',
+           'StructureSampler',
+           'DistributedStructureSampler',
+           'thiacalix_n_arene_dataset']

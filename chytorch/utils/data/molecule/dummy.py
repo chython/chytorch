@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -20,17 +20,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from .conformer import *
-from .dummy import *
-from .encoder import *
-from .methyl import *
-from .product import *
-from .rdkit import *
+from chython import smiles
+from .encoder import MoleculeDataset
 
 
-__all__ = ['MoleculeDataset', 'MoleculeDataPoint', 'MoleculeDataBatch', 'collate_molecules',
-           'ConformerDataset', 'ConformerDataPoint', 'ConformerDataBatch', 'collate_conformers',
-           'AttachedMethylDataset',
-           'MoleculeProductDataset',
-           'RDKitConformerDataset',
-           'thiacalix_n_arene_dataset']
+def thiacalix_n_arene_dataset(n=4, size=10_000, **kwargs):
+    """
+    Create a dummy dataset for testing purposes with thiacalix[n]arenes.
+
+    :param n: number of macrocycle fragments. Each fragment contains 12 atoms.
+    :param size: dataset size
+    :param kwargs: other params of MoleculeDataset
+    """
+    assert n >= 3, 'n must be greater than 3'
+    prefix = 'C12=CC(C(C)(C)C)=CC(=C2O)S'
+    postfix = 'C2=CC(C(C)(C)C)=CC(=C2O)S1'
+    chain = ''.join('C2=CC(C(C)(C)C)=CC(=C2O)S' for _ in range(n - 2))
+
+    return MoleculeDataset([smiles(prefix + chain + postfix)] * size, **kwargs)
+
+
+__all__ = ['thiacalix_n_arene_dataset']

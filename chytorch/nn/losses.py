@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2023, 2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -65,31 +65,41 @@ class CensoredLoss(_Loss):
          0 |       |       |       |
          1 |       |       | Mask  |
 
-    Wrapped loss should be configured with sum reduction.
-    Wrapper does proper mean reduction by ignoring masked values.
-
-    Note: wrapped loss should correctly treat zero-valued input and targets.
-    """
-    def __init__(self, loss: _Loss):
-        super().__init__()
-        self.loss = loss
-
-    def forward(self, input: Tensor, target: Tensor, qualifier: Tensor) -> Tensor:
-        mask = ((qualifier >= 0) | (input >= target)) & ((qualifier <= 0) | (input <= target))
-        return self.loss(input * mask, target * mask)
-
-
-class MaskedNaNLoss(_Loss):
-    """
-    Loss wrapper masking nan targets and corresponding input values as zeros.
-    Wrapped loss should be configured with sum reduction.
+    Wrapped loss should not be configured with mean reduction.
     Wrapper does proper mean reduction by ignoring masked values.
 
     Note: wrapped loss should correctly treat zero-valued input and targets.
     """
     def __init__(self, loss: _Loss, reduction: str = 'mean', eps: float = 1e-5):
-        assert reduction in ('mean', 'sum'), 'supported only `mean` and `sum` reductions'
-        assert loss.reduction == 'sum', 'given loss should be configured to `sum` reduction'
+        assert loss.reduction != 'mean', 'given loss should not be configured to `mean` reduction'
+        super().__init__(reduction=reduction)
+        self.loss = loss
+        self.eps = eps
+
+    def forward(self, input: Tensor, target: Tensor, qualifier: Tensor) -> Tensor:
+        mask = ((qualifier >= 0) | (input >= target)) & ((qualifier <= 0) | (input <= target))
+        loss = self.loss(input * mask, target * mask)
+        if self.reduction == 'mean':
+            if self.loss.reduction == 'none':
+                loss = loss.sum()
+            return loss / (mask.sum() + self.eps)
+        elif self.reduction == 'sum':
+            if self.loss.reduction == 'none':
+                return loss.sum()
+            return loss
+        return loss  # reduction='none'
+
+
+class MaskedNaNLoss(_Loss):
+    """
+    Loss wrapper masking nan targets and corresponding input values as zeros.
+    Wrapped loss should not be configured with mean reduction.
+    Wrapper does proper mean reduction by ignoring masked values.
+
+    Note: wrapped loss should correctly treat zero-valued input and targets.
+    """
+    def __init__(self, loss: _Loss, reduction: str = 'mean', eps: float = 1e-5):
+        assert loss.reduction != 'mean', 'given loss should not be configured to `mean` reduction'
         super().__init__(reduction=reduction)
         self.loss = loss
         self.eps = eps
@@ -98,8 +108,14 @@ class MaskedNaNLoss(_Loss):
         mask = ~target.isnan()
         loss = self.loss(input * mask, target.nan_to_num())
         if self.reduction == 'mean':
+            if self.loss.reduction == 'none':
+                loss = loss.sum()
             return loss / (mask.sum() + self.eps)
-        return loss  # reduction='sum'
+        elif self.reduction == 'sum':
+            if self.loss.reduction == 'none':
+                return loss.sum()
+            return loss
+        return loss  # reduction='none'
 
 
 class MSLELoss(MSELoss):

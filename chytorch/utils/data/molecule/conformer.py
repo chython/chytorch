@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2022-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -89,7 +89,7 @@ default_collate_fn_map[ConformerDataPoint] = collate_conformers  # add auto_coll
 
 class ConformerDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, Tuple[ndarray, ndarray, ndarray]]], *,
-                 short_cutoff: float =.9, long_cutoff: float = 5., precision: float = .05,
+                 short_cutoff: float = .9, long_cutoff: float = 5., precision: float = .05,
                  add_cls: bool = True, unpack: bool = True, xyz: bool = True, noisy_distance: bool = False):
         """
         convert molecules to tuple of:
