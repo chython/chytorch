@@ -88,6 +88,14 @@ class MoleculeEncoder(Module):
         self.num_layers = num_layers
         self.max_tokens = max_tokens
         self.post_norm = post_norm
+        self.d_model = d_model
+        self.nhead = nhead
+        self.dim_feedforward = dim_feedforward
+        self.dropout = dropout
+        self.activation = activation
+        self.layer_norm_eps = layer_norm_eps
+        self.norm_first = norm_first
+        self.zero_bias = zero_bias
         if post_norm:
             assert norm_first, 'post_norm requires norm_first'
             self.norm = LayerNorm(d_model, layer_norm_eps)
@@ -127,6 +135,15 @@ class MoleculeEncoder(Module):
         if self.post_norm:
             return self.norm(x)
         return x
+
+    @property
+    def hparams(self):
+        return {'max_neighbors': self.max_neighbors, 'max_distance': self.max_distance, 'd_model': self.d_model,
+                'nhead': self.nhead, 'num_layers': self.num_layers, 'dim_feedforward': self.dim_feedforward,
+                'shared_weights': self.shared_weights, 'shared_attention_bias': self.shared_attention_bias,
+                'dropout': self.dropout, 'activation': self.activation, 'layer_norm_eps': self.layer_norm_eps,
+                'norm_first': self.norm_first, 'post_norm': self.post_norm, 'zero_bias': self.zero_bias,
+                'perturbation': self.perturbation, 'max_tokens': self.max_tokens}
 
     def merge_lora(self):
         """

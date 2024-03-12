@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2022-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -34,6 +34,7 @@ class Slicer(Module):
         """
         super().__init__()
         self.slice = slc if len(slc) > 1 else slc[0]
+        self.hparams = slc
 
     def forward(self, x: Tensor):
         return x.__getitem__(self.slice)

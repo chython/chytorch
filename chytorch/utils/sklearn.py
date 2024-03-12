@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2023, 2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -21,7 +21,7 @@
 # SOFTWARE.
 #
 from torch import no_grad
-from torch.nn import Module
+from torch.nn import Module, Sequential
 from torch.utils.data import Dataset
 from typing import Type
 
@@ -84,6 +84,9 @@ class ModelEstimatorTransformer:
         sm = ModelEstimatorTransformer(net)
         p = Pipeline([('smiles', sw), ('molecule', mw), ('model', sm)])
         p.predict(['CN(C)C', 'CCO'])
+
+    If Net has attr hparams, it will be used for proper initialization of pickled model.
+    Sequence of layers with hparams attrs each is also supported .
     """
     def __init__(self, model: Module, *args, **kwargs):
         """
@@ -112,10 +115,35 @@ class ModelEstimatorTransformer:
         return self.transform(X)
 
     def __getstate__(self):
-        return {'model': type(self.model), 'args': self.args, 'kwargs': self.kwargs, 'weights': self.model.state_dict()}
+        if hasattr(self.model, 'hparams'):
+            # model has params dict or tuple to restore state
+            hparams = self.model.hparams
+        elif isinstance(self.model, Sequential) and all(hasattr(x, 'hparams') for x in self.model):
+            # sequence of layers with hparams attr support
+            hparams = [(type(x), x.hparams) for x in self.model]
+        else:
+            hparams = None
+        return {'model': type(self.model), 'args': self.args, 'kwargs': self.kwargs, 'hparams': hparams,
+                'weights': self.model.state_dict()}
 
     def __setstate__(self, state):
-        self.model = state['model'](*state['args'], **state['kwargs']).eval()
+        if state.get('hparams') is None:
+            model = state['model'](*state['args'], **state['kwargs'])
+        elif issubclass(state['model'], Sequential):
+            model = state['model']()
+            for cls, hparams in state['hparams']:
+                if isinstance(hparams, dict):
+                    model.append(cls(**hparams))
+                else:
+                    model.append(cls(*hparams))
+        else:
+            hparams = state['hparams']
+            if isinstance(hparams, dict):
+                model = state['model'](**hparams)
+            else:
+                model = state['model'](*hparams)
+
+        self.model = model.eval()
         self.model.load_state_dict(state['weights'])
         self.args = state['args']
         self.kwargs = state['kwargs']

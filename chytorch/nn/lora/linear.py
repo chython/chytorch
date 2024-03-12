@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2023, 2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -73,7 +73,7 @@ class Linear(tLinear):
     def extra_repr(self) -> str:
         r = super().extra_repr()
         if self.lora_r:
-            return  r + f', lora_r={self.lora_r}, lora_alpha={self.lora_alpha}, lora_dropout={self.lora_dropout}'
+            return r + f', lora_r={self.lora_r}, lora_alpha={self.lora_alpha}, lora_dropout={self.lora_dropout}'
         return r
 
 
