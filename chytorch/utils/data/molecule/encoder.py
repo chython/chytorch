@@ -23,7 +23,7 @@
 from chython import MoleculeContainer
 from numpy import minimum, nan_to_num
 from scipy.sparse.csgraph import shortest_path
-from torch import IntTensor, Size, int32, ones, zeros, eye, empty
+from torch import IntTensor, Size, int32, ones, zeros, eye, empty, full
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
@@ -89,9 +89,10 @@ default_collate_fn_map[MoleculeDataPoint] = collate_molecules  # add auto_collat
 
 class MoleculeDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *,
-                 hydrogens: Optional[Sequence[Sequence[Tuple[int, ...]]]] = None,
-                 max_distance: int = 10, add_cls: bool = True, max_neighbors: int = 14, unpack: bool = False,
-                 distance_cutoff=None, compressed: bool = True):
+                 hydrogens: Optional[Sequence[Sequence[Tuple[int, ...]]]] = None, cls_token: int = 1,
+                 max_distance: int = 10, add_cls: bool = True, max_neighbors: int = 14,
+                 symmetric_attention: bool = True, components_attention: bool = True,
+                 unpack: bool = False, compressed: bool = True, distance_cutoff=None):
         """
         convert molecules to tuple of:
             atoms vector with atomic numbers + 2,
@@ -109,8 +110,11 @@ class MoleculeDataset(Dataset):
         :param max_distance: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position
         :param max_neighbors: set neighbors count greater than cutoff to cutoff value
+        :param symmetric_attention: use bidirectional attention between CLS and atom or only CLS to atoms
+        :param components_attention: enable or disable attention between subgraphs
         :param unpack: unpack molecules
         :param compressed: packed molecules are compressed
+        :param cls_token: idx of cls token
         """
         assert hydrogens is None or len(hydrogens) == len(molecules), 'hydrogens and molecules must have the same size'
 
@@ -122,6 +126,9 @@ class MoleculeDataset(Dataset):
         self.max_neighbors = max_neighbors
         self.unpack = unpack
         self.compressed = compressed
+        self.cls_token = cls_token
+        self.symmetric_attention = symmetric_attention
+        self.components_attention = components_attention
 
     def __getitem__(self, item: int) -> MoleculeDataPoint:
         mol = self.molecules[item]
@@ -141,7 +148,8 @@ class MoleculeDataset(Dataset):
             else:
                 if self.compressed:
                     mol = decompress(mol)
-                atoms, neighbors, distances, _, mapping = unpack(mol, self.add_cls, self.max_neighbors,
+                atoms, neighbors, distances, _, mapping = unpack(mol, self.add_cls, self.symmetric_attention,
+                                                                 self.components_attention, self.max_neighbors,
                                                                  self.max_distance, pad)
                 if pad:
                     for n, da in enumerate(hmap, -pad):
@@ -149,6 +157,8 @@ class MoleculeDataset(Dataset):
                         for m in da:
                             m = mapping[m]
                             distances[n, m] = distances[m, n] = 1
+                if self.add_cls and self.cls_token != 1:
+                    atoms[0] = self.cls_token
                 return MoleculeDataPoint(IntTensor(atoms), IntTensor(neighbors), IntTensor(distances))
 
         nc = self.max_neighbors
@@ -157,7 +167,7 @@ class MoleculeDataset(Dataset):
 
         if self.add_cls:
             lp += 1
-            atoms = ones(lp, dtype=int32)  # cls token = 1
+            atoms = full((lp,), self.cls_token, dtype=int32)
             neighbors = zeros(lp, dtype=int32)  # cls centrality-encoder disabled by padding trick
         else:
             atoms = empty(lp, dtype=int32)
@@ -174,7 +184,7 @@ class MoleculeDataset(Dataset):
             neighbors[i] = nb + 2
 
         distances = shortest_path(mol.adjacency_matrix(), method='FW', directed=False, unweighted=True) + 2
-        nan_to_num(distances, copy=False, posinf=1)
+        nan_to_num(distances, copy=False, posinf=self.components_attention)
         minimum(distances, self.max_distance + 2, out=distances)
         distances = IntTensor(distances)
 
@@ -182,7 +192,8 @@ class MoleculeDataset(Dataset):
             atoms[-pad:] = 2  # set explicit hydrogens
             tmp = eye(lp, dtype=int32)
             if self.add_cls:
-                tmp[0] = tmp[1:, 0] = 1
+                tmp[0] = 1  # enable CLS to atom attention
+                tmp[1:, 0] = 1 if self.symmetric_attention else 0  # enable or disable atom to CLS attention
                 tmp[1:-pad, 1:-pad] = distances
             else:
                 tmp[:-pad, :-pad] = distances
@@ -195,6 +206,8 @@ class MoleculeDataset(Dataset):
                     distances[n, m] = distances[m, n] = 1
         elif self.add_cls:
             tmp = ones((lp, lp), dtype=int32)
+            if not self.symmetric_attention:
+                tmp[1:, 0] = 0  # disable atom to CLS attention
             tmp[1:, 1:] = distances
             distances = tmp
         return MoleculeDataPoint(atoms, neighbors, distances)

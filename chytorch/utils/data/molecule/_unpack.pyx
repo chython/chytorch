@@ -67,8 +67,8 @@ cdef extern from "Python.h":
 @cython.boundscheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
-def unpack(const unsigned char[::1] data not None, unsigned short add_cls,
-           DTYPE_t max_neighbors, DTYPE_t max_distance, DTYPE_t padding):
+def unpack(const unsigned char[::1] data not None, unsigned short add_cls, unsigned short symmetric_attention,
+           unsigned short components_attention, DTYPE_t max_neighbors, DTYPE_t max_distance, DTYPE_t padding):
     """
     Optimized chython pack to graph tensor converter.
     Ignores charge, radicals, isotope, coordinates, bond order, and stereo info
@@ -83,7 +83,7 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls,
 
     cdef cnp.ndarray[DTYPE_t, ndim=1] atoms, neighbors
     cdef cnp.ndarray[DTYPE_t, ndim=2] distance
-    cdef DTYPE_t d
+    cdef DTYPE_t d, attention
 
     cdef object py_n
     cdef dict py_mapping
@@ -91,6 +91,8 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls,
     # read header
     if data[0] != 2:
         raise ValueError('invalid pack version')
+
+    attention = 1 if components_attention else 0
 
     a, b, c = data[1], data[2], data[3]
     atoms_count = (a << 4| b >> 4) + add_cls
@@ -111,6 +113,12 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls,
     if add_cls:
         atoms[0] = 1
         neighbors[0] = 0
+        distance[0] = 1  # set CLS to all atoms attention
+
+        if symmetric_attention:  # set all atoms to CLS attention
+            distance[1:, 0] = 1
+        else:  # disable atom to CLS attention
+            distance[1:, 0] = 0
 
     # unpack atom block
     for i in range(add_cls, atoms_count):
@@ -167,12 +175,13 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls,
                     if d < distance[i, j]:
                         distance[i, j] = d
 
-    # reset to proper values
-    for i in range(atoms_count):
+    # reset distances to proper values
+    for i in range(add_cls, atoms_count):
         for j in range(i, atoms_count):
             d = distance[i, j]
             if d == 9999:
-                distance[i, j] = distance[j, i] = 1
+                # set attention between subgraphs
+                distance[i, j] = distance[j, i] = attention
             elif d > max_distance:
                 distance[i, j] = distance[j, i] = max_distance + 2
             else:
@@ -184,8 +193,6 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls,
         for j in range(padded_count):
             distance[i, j] = distance[j, i] = 0
         distance[i, i] = 1  # self-attention of padding
-        if add_cls:
-            distance[i, 0] = distance[0, i] = 1
 
     size = shift + order_count + 4 * cis_trans_count
     PyMem_Free(connections)

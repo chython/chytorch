@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2021-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -20,8 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from .activation import *
-from .converters import *
 from .losses import *
 from .molecule import *
 from .reaction import *
@@ -33,9 +31,7 @@ __all__ = ['MoleculeEncoder',
            'ReactionEncoder',
            'Slicer',
            'VotingClassifier', 'VotingRegressor', 'BinaryVotingClassifier',
-           'PulingHardtanh',
            'MultiTaskLoss',
            'CensoredLoss',
            'MaskedNaNLoss',
-           'MSLELoss',
-           'Converters', 'MultiColumnConverters']
+           'MSLELoss']

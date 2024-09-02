@@ -20,10 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
+from itertools import repeat
 from torch.nn import GELU, Module, ModuleList, LayerNorm
 from torchtyping import TensorType
+from typing import Tuple, Optional, List
 from warnings import warn
-from .embedding import EmbeddingBag
+from ._embedding import EmbeddingBag
 from ..lora import Embedding
 from ..transformer import EncoderLayer
 from ...utils.data import MoleculeDataBatch
@@ -49,6 +51,7 @@ class MoleculeEncoder(Module):
                  shared_attention_bias: bool = True, dropout: float = 0.1, activation=GELU,
                  layer_norm_eps: float = 1e-5, norm_first: bool = False, post_norm: bool = False,
                  zero_bias: bool = False, perturbation: float = 0., max_tokens: int = 121,
+                 projection_bias: bool = True, ff_bias: bool = True,
                  lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
         Molecule Graphormer from https://doi.org/10.1021/acs.jcim.2c00344.
@@ -103,16 +106,21 @@ class MoleculeEncoder(Module):
         self.shared_weights = shared_weights
         if shared_weights:
             self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, norm_first,
+                                      projection_bias=projection_bias, ff_bias=ff_bias,
                                       lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
             self.layers = [self.layer] * num_layers
         else:
             # layers sharing scheme can be manually changed. e.g. pairs of shared encoders
             self.layers = ModuleList(EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation,
                                                   layer_norm_eps, norm_first, lora_r=lora_r, lora_alpha=lora_alpha,
+                                                  projection_bias=projection_bias, ff_bias=ff_bias,
                                                   lora_dropout=lora_dropout) for _ in range(num_layers))
         self._register_load_state_dict_pre_hook(_update)
 
-    def forward(self, batch: MoleculeDataBatch) -> TensorType['batch', 'atoms', 'embedding']:
+    def forward(self, batch: MoleculeDataBatch, /, *,
+                cache: Optional[List[Tuple[TensorType['batch', 'atoms+conditions', 'embedding'],
+                                           TensorType['batch', 'atoms+conditions', 'embedding']]]] = None) -> \
+            TensorType['batch', 'atoms', 'embedding']:
         """
         Use 0 for padding.
         Atoms should be coded by atomic numbers + 2.
@@ -122,15 +130,16 @@ class MoleculeEncoder(Module):
         Distances should be coded from 2 (means self-loop) to max_distance + 2.
         Non-reachable atoms should be coded by 1.
         """
+        cache = repeat(None) if cache is None else iter(cache)
         atoms, neighbors, distances = batch
 
         x = self.embedding(atoms, neighbors)
 
-        for lr, d in zip(self.layers, self.distance_encoders):
+        for lr, d, c in zip(self.layers, self.distance_encoders, cache):
             if d is not None:
                 d_mask = d(distances).permute(0, 3, 1, 2)  # BxNxNxH > BxHxNxN
             # else: reuse previously calculated mask
-            x, _ = lr(x, d_mask)  # noqa
+            x, _ = lr(x, d_mask, cache=c)  # noqa
 
         if self.post_norm:
             return self.norm(x)

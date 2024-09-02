@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2023, 2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -45,13 +45,15 @@ def _update_lora(state_dict, prefix, local_metadata, strict, missing_keys, unexp
         state_dict[prefix + 'v_proj.bias'] = v_b
     elif prefix + 'qkv_proj.weight' in state_dict:  # transform packed projection
         q_w, k_w, v_w = state_dict.pop(prefix + 'qkv_proj.weight').chunk(3, dim=0)
-        q_b, k_b, v_b = state_dict.pop(prefix + 'qkv_proj.bias').chunk(3, dim=0)
         state_dict[prefix + 'q_proj.weight'] = q_w
         state_dict[prefix + 'k_proj.weight'] = k_w
         state_dict[prefix + 'v_proj.weight'] = v_w
-        state_dict[prefix + 'q_proj.bias'] = q_b
-        state_dict[prefix + 'k_proj.bias'] = k_b
-        state_dict[prefix + 'v_proj.bias'] = v_b
+
+        if prefix + 'qkv_proj.bias' in state_dict:
+            q_b, k_b, v_b = state_dict.pop(prefix + 'qkv_proj.bias').chunk(3, dim=0)
+            state_dict[prefix + 'q_proj.bias'] = q_b
+            state_dict[prefix + 'k_proj.bias'] = k_b
+            state_dict[prefix + 'v_proj.bias'] = v_b
 
 
 def _update_packed(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
@@ -66,18 +68,20 @@ def _update_packed(state_dict, prefix, local_metadata, strict, missing_keys, une
         q_w = state_dict.pop(prefix + 'q_proj.weight')
         k_w = state_dict.pop(prefix + 'k_proj.weight')
         v_w = state_dict.pop(prefix + 'v_proj.weight')
-        q_b = state_dict.pop(prefix + 'q_proj.bias')
-        k_b = state_dict.pop(prefix + 'k_proj.bias')
-        v_b = state_dict.pop(prefix + 'v_proj.bias')
         state_dict[prefix + 'qkv_proj.weight'] = cat([q_w, k_w, v_w])
-        state_dict[prefix + 'qkv_proj.bias'] = cat([q_b, k_b, v_b])
+
+        if prefix + 'q_proj.bias' in state_dict:
+            q_b = state_dict.pop(prefix + 'q_proj.bias')
+            k_b = state_dict.pop(prefix + 'k_proj.bias')
+            v_b = state_dict.pop(prefix + 'v_proj.bias')
+            state_dict[prefix + 'qkv_proj.bias'] = cat([q_b, k_b, v_b])
 
 
 class GraphormerAttention(Module):
     """
     LoRA wrapped Multi-Head Attention
     """
-    def __init__(self, embed_dim, num_heads, dropout: float = .1, separate_proj: bool = False,
+    def __init__(self, embed_dim, num_heads, dropout: float = .1, bias: bool = True, separate_proj: bool = False,
                  lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         """
         :param embed_dim: the size of each embedding vector
@@ -98,14 +102,18 @@ class GraphormerAttention(Module):
         self._scale = 1 / sqrt(embed_dim / num_heads)
 
         if separate_proj or lora_r:
-            self.q_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
-            self.k_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
-            self.v_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+            self.q_proj = Linear(embed_dim, embed_dim, bias=bias,
+                                 lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+            self.k_proj = Linear(embed_dim, embed_dim, bias=bias,
+                                 lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+            self.v_proj = Linear(embed_dim, embed_dim, bias=bias,
+                                 lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
             self._register_load_state_dict_pre_hook(_update_lora)
         else:  # packed projection
-            self.qkv_proj = Linear(embed_dim, 3 * embed_dim)
+            self.qkv_proj = Linear(embed_dim, 3 * embed_dim, bias=bias)
             self._register_load_state_dict_pre_hook(_update_packed)
-        self.o_proj = Linear(embed_dim, embed_dim, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+        self.o_proj = Linear(embed_dim, embed_dim, bias=bias,
+                             lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
 
     def forward(self, x: Tensor, attn_mask: Optional[Tensor], pad_mask: Optional[Tensor] = None, *,
                 cache: Optional[Tuple[Tensor, Tensor]] = None,

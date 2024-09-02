@@ -23,14 +23,10 @@
 from .conformer import *
 from .dummy import *
 from .encoder import *
-from .methyl import *
-from .product import *
 from .rdkit import *
 
 
 __all__ = ['MoleculeDataset', 'MoleculeDataPoint', 'MoleculeDataBatch', 'collate_molecules',
            'ConformerDataset', 'ConformerDataPoint', 'ConformerDataBatch', 'collate_conformers',
-           'AttachedMethylDataset',
-           'MoleculeProductDataset',
            'RDKitConformerDataset',
            'thiacalix_n_arene_dataset']

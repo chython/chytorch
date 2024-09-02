@@ -20,9 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from .embedding import *
 from .encoder import *
 
 
-__all__ = ['MoleculeEncoder',
-           'EmbeddingBag']
+__all__ = ['MoleculeEncoder']

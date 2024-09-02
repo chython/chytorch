@@ -20,16 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from .combination import *
 from .lmdb import *
-from .mmap import *
 from .molecule import *
-from .postgres import *
 from .product import *
 from .reaction import *
 from .sampler import *
 from .smiles import *
-from .tokenizer import *
 from .unpack import *
 from ._utils import *
 
@@ -37,19 +33,12 @@ from ._utils import *
 __all__ = ['MoleculeDataset', 'collate_molecules',
            'ConformerDataset', 'collate_conformers',
            'ReactionEncoderDataset', 'collate_encoded_reactions',
-           'MoleculeProductDataset',
-           'AttachedMethylDataset',
            'RDKitConformerDataset',
-           'PermutedReactionDataset', 'ReactionLabelsDataset',
            'SMILESDataset',
-           'SMILESTokenizerDataset', 'collate_sequences',
            'ProductDataset',
-           'CombinationsDataset',
            'SuppressException', 'SizedList', 'ShuffledList',
            'ByteRange',
            'LMDBMapper',
-           'PostgresMapper',
-           'StringMemoryMapper',
            'PickleUnpack',
            'JsonUnpack',
            'StructUnpack',

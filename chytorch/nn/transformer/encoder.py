@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2021-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from torch import Tensor
+from torch import Tensor, nn
 from torch.nn import Dropout, GELU, LayerNorm, Module
 from typing import Tuple, Optional, Type
 from .attention import GraphormerAttention
@@ -44,17 +44,25 @@ class EncoderLayer(Module):
     """
     def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1, activation=GELU, layer_norm_eps=1e-5,
                  norm_first: bool = False, attention: Type[Module] = GraphormerAttention,
+                 projection_bias: bool = True, ff_bias: bool = True,
                  lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
         super().__init__()
-        self.self_attn = attention(d_model, nhead, dropout, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)  # noqa
+        self.self_attn = attention(d_model, nhead, dropout, bias=projection_bias,
+                                   lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)  # noqa
 
-        self.linear1 = Linear(d_model, dim_feedforward, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
-        self.linear2 = Linear(dim_feedforward, d_model, lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+        self.linear1 = Linear(d_model, dim_feedforward, bias=ff_bias,
+                              lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+        self.linear2 = Linear(dim_feedforward, d_model, bias=ff_bias,
+                              lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
         self.norm1 = LayerNorm(d_model, eps=layer_norm_eps)
         self.norm2 = LayerNorm(d_model, eps=layer_norm_eps)
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
         self.dropout3 = Dropout(dropout)
+
+        # ad-hoc for resolving class from name
+        if isinstance(activation, str):
+            activation = getattr(nn, activation)
         self.activation = activation()
         self.norm_first = norm_first
 

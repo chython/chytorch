@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022, 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2022-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -21,7 +21,6 @@
 # SOFTWARE.
 #
 from .encoder import *
-from .permuted import *
 
 
 # reverse compatibility
@@ -31,6 +30,5 @@ collate_reactions = collate_encoded_reactions
 
 __all__ = ['ReactionEncoderDataset', 'ReactionEncoderDataPoint', 'ReactionEncoderDataBatch',
            'collate_encoded_reactions',
-           'PermutedReactionDataset', 'ReactionLabelsDataset',
            # reverse compatibility
            'ReactionDataset', 'collate_reactions']
