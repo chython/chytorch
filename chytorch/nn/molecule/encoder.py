@@ -145,15 +145,6 @@ class MoleculeEncoder(Module):
             return self.norm(x)
         return x
 
-    @property
-    def hparams(self):
-        return {'max_neighbors': self.max_neighbors, 'max_distance': self.max_distance, 'd_model': self.d_model,
-                'nhead': self.nhead, 'num_layers': self.num_layers, 'dim_feedforward': self.dim_feedforward,
-                'shared_weights': self.shared_weights, 'shared_attention_bias': self.shared_attention_bias,
-                'dropout': self.dropout, 'activation': self.activation, 'layer_norm_eps': self.layer_norm_eps,
-                'norm_first': self.norm_first, 'post_norm': self.post_norm, 'zero_bias': self.zero_bias,
-                'perturbation': self.perturbation, 'max_tokens': self.max_tokens}
-
     def merge_lora(self):
         """
         Transform LoRA layers to normal

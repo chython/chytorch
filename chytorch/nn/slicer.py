@@ -34,7 +34,6 @@ class Slicer(Module):
         """
         super().__init__()
         self.slice = slc if len(slc) > 1 else slc[0]
-        self.hparams = slc
 
     def forward(self, x: Tensor):
         return x.__getitem__(self.slice)
