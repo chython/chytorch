@@ -51,8 +51,7 @@ class MoleculeEncoder(Module):
                  shared_attention_bias: bool = True, dropout: float = 0.1, activation=GELU,
                  layer_norm_eps: float = 1e-5, norm_first: bool = False, post_norm: bool = False,
                  zero_bias: bool = False, perturbation: float = 0., max_tokens: int = 121,
-                 projection_bias: bool = True, ff_bias: bool = True,
-                 lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
+                 projection_bias: bool = True, ff_bias: bool = True):
         """
         Molecule Graphormer from https://doi.org/10.1021/acs.jcim.2c00344.
 
@@ -64,14 +63,11 @@ class MoleculeEncoder(Module):
         :param zero_bias: use frozen zero bias of attention for non-reachable atoms.
         :param perturbation: add perturbation to embedding (https://aclanthology.org/2021.naacl-main.460.pdf).
             Disabled by default
-        :param lora_r: LoRA factorization dimension size in encoder embeddings. Disabled by default.
-        :param lora_alpha: LoRA scaling factor.
-        :param lora_dropout: LoRA input dropout.
         :param shared_attention_bias: use shared distance encoder or unique for each transformer layer.
         :param max_tokens: number of tokens in the atom encoder embedding layer.
         """
         super().__init__()
-        self.embedding = EmbeddingBag(max_neighbors, d_model, perturbation, max_tokens, lora_r, lora_alpha)
+        self.embedding = EmbeddingBag(max_neighbors, d_model, perturbation, max_tokens)
 
         self.shared_attention_bias = shared_attention_bias
         if shared_attention_bias:
@@ -106,15 +102,13 @@ class MoleculeEncoder(Module):
         self.shared_weights = shared_weights
         if shared_weights:
             self.layer = EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, norm_first,
-                                      projection_bias=projection_bias, ff_bias=ff_bias,
-                                      lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+                                      projection_bias=projection_bias, ff_bias=ff_bias)
             self.layers = [self.layer] * num_layers
         else:
             # layers sharing scheme can be manually changed. e.g. pairs of shared encoders
             self.layers = ModuleList(EncoderLayer(d_model, nhead, dim_feedforward, dropout, activation,
-                                                  layer_norm_eps, norm_first, lora_r=lora_r, lora_alpha=lora_alpha,
-                                                  projection_bias=projection_bias, ff_bias=ff_bias,
-                                                  lora_dropout=lora_dropout) for _ in range(num_layers))
+                                                  layer_norm_eps, norm_first, projection_bias=projection_bias,
+                                                  ff_bias=ff_bias) for _ in range(num_layers))
         self._register_load_state_dict_pre_hook(_update)
 
     def forward(self, batch: MoleculeDataBatch, /, *,
@@ -144,14 +138,6 @@ class MoleculeEncoder(Module):
         if self.post_norm:
             return self.norm(x)
         return x
-
-    def merge_lora(self):
-        """
-        Transform LoRA layers to normal
-        """
-        self.embedding.merge_lora()
-        for layer in self.layers:
-            layer.merge_lora()
 
     @property
     def centrality_encoder(self):

@@ -31,27 +31,18 @@ class Embedding(tEmbedding):
     """
     LoRA wrapped Embedding layer.
     """
-    def __init__(self, num_embeddings: int, embedding_dim: int, *args,
-                 lora_r: int = 0, lora_alpha: float = 1., neg_inf_idx: Optional[int] = None, **kwargs):
+    def __init__(self, *args, neg_inf_idx: Optional[int] = None, **kwargs):
         """
-        :param lora_r: LoRA factorization dimension
-        :param lora_alpha: LoRA scaling factor
         :param neg_inf_idx: -inf frozen embedding vector
 
         See torch.nn.Embedding for other params
         """
-        super().__init__(num_embeddings, embedding_dim, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.neg_inf_idx = neg_inf_idx
-        self.lora_r = lora_r
+        self.lora_r = 0
         if neg_inf_idx is not None:
             with no_grad():
                 self.weight[neg_inf_idx].fill_(-inf)
-        if lora_r:  # enable lora
-            self.weight.requires_grad = False  # freeze main weights
-            self.lora_a = Parameter(init.zeros_(empty(num_embeddings, lora_r)))
-            self.lora_b = Parameter(init.normal_(empty(embedding_dim, lora_r)))
-            self.lora_alpha = lora_alpha
-            self._lora_scaling = lora_alpha / lora_r
 
     def forward(self, x: Tensor) -> Tensor:
         emb = super().forward(x)
@@ -61,6 +52,20 @@ class Embedding(tEmbedding):
             return addmm(emb.flatten(end_dim=-2), a.flatten(end_dim=-2), self.lora_b.transpose(0, 1),
                          alpha=self._lora_scaling).view(emb.shape)
         return emb
+
+    def activate_lora(self, lora_r: int = 0, lora_alpha: float = 1.):
+        """
+        :param lora_r: LoRA factorization dimension
+        :param lora_alpha: LoRA scaling factor
+        """
+        assert lora_r > 0, 'rank should be greater than zero'
+        self.weight.requires_grad = False  # freeze main weights
+        self.lora_a = Parameter(init.zeros_(empty(self.num_embeddings, lora_r)))
+        self.lora_b = Parameter(init.normal_(empty(self.embedding_dim, lora_r)))
+
+        self.lora_r = lora_r
+        self.lora_alpha = lora_alpha
+        self._lora_scaling = lora_alpha / lora_r
 
     def merge_lora(self):
         """

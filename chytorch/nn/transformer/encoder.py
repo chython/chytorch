@@ -23,8 +23,35 @@
 from torch import Tensor, nn
 from torch.nn import Dropout, GELU, LayerNorm, Module
 from typing import Tuple, Optional, Type
+from warnings import warn
 from .attention import GraphormerAttention
 from ..lora import Linear
+
+
+def _update(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
+    if prefix + 'linear1.weight' in state_dict:
+        warn('fixed chytorch<1.64 checkpoint', DeprecationWarning)
+        state_dict[prefix + 'mlp.linear1.weight'] = state_dict.pop(prefix + 'linear1.weight')
+        state_dict[prefix + 'mlp.linear2.weight'] = state_dict.pop(prefix + 'linear2.weight')
+        if prefix + 'linear1.bias' in state_dict:
+            state_dict[prefix + 'mlp.linear1.bias'] = state_dict.pop(prefix + 'linear1.bias')
+            state_dict[prefix + 'mlp.linear2.bias'] = state_dict.pop(prefix + 'linear2.bias')
+
+
+class MLP(Module):
+    def __init__(self, d_model, dim_feedforward, dropout=0.1, activation=GELU, bias: bool = True):
+        super().__init__()
+        self.linear1 = Linear(d_model, dim_feedforward, bias=bias)
+        self.linear2 = Linear(dim_feedforward, d_model, bias=bias)
+        self.dropout = Dropout(dropout)
+
+        # ad-hoc for resolving class from name
+        if isinstance(activation, str):
+            activation = getattr(nn, activation)
+        self.activation = activation()
+
+    def forward(self, x):
+        return self.linear2(self.dropout(self.activation(self.linear1(x))))
 
 
 class EncoderLayer(Module):
@@ -38,33 +65,20 @@ class EncoderLayer(Module):
     :param layer_norm_eps: the eps value in layer normalization components (default=1e-5).
     :param norm_first: if `True`, layer norm is done prior to self attention, multihead
         attention and feedforward operations, respectively. Otherwise, it's done after.
-    :param lora_r: LoRA factorization dimension
-    :param lora_alpha: LoRA scaling factor
-    :param lora_dropout: LoRA input dropout
     """
     def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1, activation=GELU, layer_norm_eps=1e-5,
-                 norm_first: bool = False, attention: Type[Module] = GraphormerAttention,
-                 projection_bias: bool = True, ff_bias: bool = True,
-                 lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
+                 norm_first: bool = False, attention: Type[Module] = GraphormerAttention, mlp: Type[Module] = MLP,
+                 projection_bias: bool = True, ff_bias: bool = True):
         super().__init__()
-        self.self_attn = attention(d_model, nhead, dropout, bias=projection_bias,
-                                   lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)  # noqa
+        self.self_attn = attention(d_model, nhead, dropout, projection_bias)
+        self.mlp = mlp(d_model, dim_feedforward, dropout, activation, ff_bias)
 
-        self.linear1 = Linear(d_model, dim_feedforward, bias=ff_bias,
-                              lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
-        self.linear2 = Linear(dim_feedforward, d_model, bias=ff_bias,
-                              lora_r=lora_r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
         self.norm1 = LayerNorm(d_model, eps=layer_norm_eps)
         self.norm2 = LayerNorm(d_model, eps=layer_norm_eps)
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
-        self.dropout3 = Dropout(dropout)
-
-        # ad-hoc for resolving class from name
-        if isinstance(activation, str):
-            activation = getattr(nn, activation)
-        self.activation = activation()
         self.norm_first = norm_first
+        self._register_load_state_dict_pre_hook(_update)
 
     def forward(self, x: Tensor, attn_mask: Optional[Tensor], pad_mask: Optional[Tensor] = None, *,
                 cache: Optional[Tuple[Tensor, Tensor]] = None,
@@ -75,22 +89,11 @@ class EncoderLayer(Module):
         if need_embedding:
             x = x + self.dropout1(e)
             if self.norm_first:
-                return x + self._ff(self.norm2(x)), a
+                return x + self.dropout2(self.mlp(self.norm2(x))), a
             # else: post-norm
             x = self.norm1(x)
-            return self.norm2(x + self._ff(x)), a
+            return self.norm2(x + self.dropout2(self.mlp(x))), a
         return None, a
-
-    def merge_lora(self):
-        """
-        Transform LoRA Encoder to normal
-        """
-        self.self_attn.merge_lora()
-        self.linear1.merge_lora()
-        self.linear2.merge_lora()
-
-    def _ff(self, x):
-        return self.dropout3(self.linear2(self.dropout2(self.activation(self.linear1(x)))))
 
 
 __all__ = ['EncoderLayer']

@@ -30,24 +30,9 @@ class Linear(tLinear):
     """
     LoRA wrapped Linear layer.
     """
-    def __init__(self, in_features: int, out_features: int, *args, lora_r: int = 0, lora_alpha: float = 1.,
-                 lora_dropout: float = 0., **kwargs):
-        """
-        :param lora_r: LoRA factorization dimension
-        :param lora_alpha: LoRA scaling factor
-        :param lora_dropout: LoRA input dropout
-
-        See torch.nn.Linear for other params
-        """
-        super().__init__(in_features, out_features, *args, **kwargs)
-        self.lora_r = lora_r
-        if lora_r:  # enable lora
-            self.weight.requires_grad = False  # freeze main weights
-            self.lora_a = Parameter(init.kaiming_uniform_(empty(lora_r, in_features), a=sqrt(5)))
-            self.lora_b = Parameter(init.zeros_(empty(out_features, lora_r)))
-            self.lora_dropout = lora_dropout
-            self.lora_alpha = lora_alpha
-            self._lora_scaling = lora_alpha / lora_r
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lora_r = 0
 
     def forward(self, x: Tensor) -> Tensor:
         out = super().forward(x)
@@ -58,6 +43,22 @@ class Linear(tLinear):
             return addmm(out.flatten(end_dim=-2), a.flatten(end_dim=-2), self.lora_b.transpose(0, 1),
                          alpha=self._lora_scaling).view(out.shape)
         return out
+
+    def activate_lora(self, lora_r: int = 0, lora_alpha: float = 1., lora_dropout: float = 0.):
+        """
+        :param lora_r: LoRA factorization dimension
+        :param lora_alpha: LoRA scaling factor
+        :param lora_dropout: LoRA input dropout
+        """
+        assert lora_r > 0, 'rank should be greater than zero'
+        self.weight.requires_grad = False  # freeze main weights
+        self.lora_a = Parameter(init.kaiming_uniform_(empty(lora_r, self.in_features), a=sqrt(5)))
+        self.lora_b = Parameter(init.zeros_(empty(self.out_features, lora_r)))
+
+        self.lora_r = lora_r
+        self.lora_dropout = lora_dropout
+        self.lora_alpha = lora_alpha
+        self._lora_scaling = lora_alpha / lora_r
 
     def merge_lora(self):
         """

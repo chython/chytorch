@@ -26,13 +26,12 @@ from ..lora import Embedding
 
 
 class EmbeddingBag(Module):
-    def __init__(self, max_neighbors: int = 14, d_model: int = 1024, perturbation: float = 0., max_tokens: int = 121,
-                 lora_r: int = 0, lora_alpha: float = 1.):
+    def __init__(self, max_neighbors: int = 14, d_model: int = 1024, perturbation: float = 0., max_tokens: int = 121):
         assert perturbation >= 0, 'zero or positive perturbation expected'
         assert max_tokens >= 121, 'at least 121 tokens should be'
         super().__init__()
-        self.atoms_encoder = Embedding(max_tokens, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
-        self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0, lora_r=lora_r, lora_alpha=lora_alpha)
+        self.atoms_encoder = Embedding(max_tokens, d_model, 0)
+        self.neighbors_encoder = Embedding(max_neighbors + 3, d_model, 0)
 
         self.max_neighbors = max_neighbors
         self.perturbation = perturbation
@@ -45,10 +44,6 @@ class EmbeddingBag(Module):
         if self.perturbation and self.training:
             x = x + empty_like(x).uniform_(-self.perturbation, self.perturbation)
         return x
-
-    def merge_lora(self):
-        self.atoms_encoder.merge_lora()
-        self.neighbors_encoder.merge_lora()
 
 
 __all__ = ['EmbeddingBag']
