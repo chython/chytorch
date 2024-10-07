@@ -27,7 +27,7 @@ from torch import IntTensor, Size, int32, ones, zeros, eye, empty, full
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchtyping import TensorType
-from typing import Sequence, Union, NamedTuple, Optional, Tuple
+from typing import Sequence, Union, NamedTuple
 from zlib import decompress
 from .._abc import default_collate_fn_map
 
@@ -89,8 +89,7 @@ default_collate_fn_map[MoleculeDataPoint] = collate_molecules  # add auto_collat
 
 class MoleculeDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *,
-                 hydrogens: Optional[Sequence[Sequence[Tuple[int, ...]]]] = None, cls_token: int = 1,
-                 max_distance: int = 10, add_cls: bool = True, max_neighbors: int = 14,
+                 cls_token: int = 1, max_distance: int = 10, add_cls: bool = True, max_neighbors: int = 14,
                  symmetric_attention: bool = True, components_attention: bool = True,
                  unpack: bool = False, compressed: bool = True, distance_cutoff=None):
         """
@@ -106,7 +105,6 @@ class MoleculeDataset(Dataset):
               that code unreachable atoms (e.g. salts).
 
         :param molecules: molecules collection
-        :param hydrogens: shared hydrogen mapping. First element is hydrogen donor, other are acceptors
         :param max_distance: set distances greater than cutoff to cutoff value
         :param add_cls: add special token at first position
         :param max_neighbors: set neighbors count greater than cutoff to cutoff value
@@ -116,10 +114,7 @@ class MoleculeDataset(Dataset):
         :param compressed: packed molecules are compressed
         :param cls_token: idx of cls token
         """
-        assert hydrogens is None or len(hydrogens) == len(molecules), 'hydrogens and molecules must have the same size'
-
         self.molecules = molecules
-        self.hydrogens = hydrogens
         # distance_cutoff is deprecated
         self.max_distance = distance_cutoff if distance_cutoff is not None else max_distance
         self.add_cls = add_cls
@@ -132,14 +127,6 @@ class MoleculeDataset(Dataset):
 
     def __getitem__(self, item: int) -> MoleculeDataPoint:
         mol = self.molecules[item]
-
-        if self.hydrogens is not None:
-            hmap = self.hydrogens[item]
-            pad = len(hmap)
-        else:
-            hmap = None
-            pad = 0
-
         if self.unpack:
             try:
                 from ._unpack import unpack
@@ -148,22 +135,15 @@ class MoleculeDataset(Dataset):
             else:
                 if self.compressed:
                     mol = decompress(mol)
-                atoms, neighbors, distances, _, mapping = unpack(mol, self.add_cls, self.symmetric_attention,
-                                                                 self.components_attention, self.max_neighbors,
-                                                                 self.max_distance, pad)
-                if pad:
-                    for n, da in enumerate(hmap, -pad):
-                        neighbors[mapping[da[0]]] -= 1
-                        for m in da:
-                            m = mapping[m]
-                            distances[n, m] = distances[m, n] = 1
+                atoms, neighbors, distances, _ = unpack(mol, self.add_cls, self.symmetric_attention,
+                                                        self.components_attention, self.max_neighbors,
+                                                        self.max_distance)
                 if self.add_cls and self.cls_token != 1:
                     atoms[0] = self.cls_token
                 return MoleculeDataPoint(IntTensor(atoms), IntTensor(neighbors), IntTensor(distances))
 
         nc = self.max_neighbors
-        lp = len(mol) + pad
-        mapping = {}
+        lp = len(mol)
 
         if self.add_cls:
             lp += 1
@@ -176,7 +156,6 @@ class MoleculeDataset(Dataset):
         ngb = mol._bonds  # noqa speedup
         hgs = mol._hydrogens  # noqa
         for i, (n, a) in enumerate(mol.atoms(), self.add_cls):
-            mapping[n] = i
             atoms[i] = a.atomic_number + 2
             nb = len(ngb[n]) + (hgs[n] or 0)  # treat bad valence as 0-hydrogen
             if nb > nc:
@@ -188,23 +167,7 @@ class MoleculeDataset(Dataset):
         minimum(distances, self.max_distance + 2, out=distances)
         distances = IntTensor(distances)
 
-        if pad:
-            atoms[-pad:] = 2  # set explicit hydrogens
-            tmp = eye(lp, dtype=int32)
-            if self.add_cls:
-                tmp[0] = 1  # enable CLS to atom attention
-                tmp[1:, 0] = 1 if self.symmetric_attention else 0  # enable or disable atom to CLS attention
-                tmp[1:-pad, 1:-pad] = distances
-            else:
-                tmp[:-pad, :-pad] = distances
-            distances = tmp
-
-            for n, da in enumerate(hmap, -pad):
-                neighbors[mapping[da[0]]] -= 1
-                for m in da:
-                    m = mapping[m]
-                    distances[n, m] = distances[m, n] = 1
-        elif self.add_cls:
+        if self.add_cls:
             tmp = ones((lp, lp), dtype=int32)
             if not self.symmetric_attention:
                 tmp[1:, 0] = 0  # disable atom to CLS attention

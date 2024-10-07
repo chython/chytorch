@@ -31,10 +31,6 @@ DTYPE = np.int32
 ctypedef cnp.int32_t DTYPE_t
 
 
-cdef extern from "Python.h":
-    dict _PyDict_NewPresized(Py_ssize_t minused)
-
-
 # Format specification::
 #
 # Big endian bytes order
@@ -68,7 +64,7 @@ cdef extern from "Python.h":
 @cython.cdivision(True)
 @cython.wraparound(False)
 def unpack(const unsigned char[::1] data not None, unsigned short add_cls, unsigned short symmetric_attention,
-           unsigned short components_attention, DTYPE_t max_neighbors, DTYPE_t max_distance, DTYPE_t padding):
+           unsigned short components_attention, DTYPE_t max_neighbors, DTYPE_t max_distance):
     """
     Optimized chython pack to graph tensor converter.
     Ignores charge, radicals, isotope, coordinates, bond order, and stereo info
@@ -76,7 +72,7 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls, unsig
     cdef unsigned char a, b, c, hydrogens, neighbors_count
     cdef unsigned char *connections
 
-    cdef unsigned short atoms_count, bonds_count = 0, order_count = 0, cis_trans_count, padded_count
+    cdef unsigned short atoms_count, bonds_count = 0, order_count = 0, cis_trans_count
     cdef unsigned short i, j, k, n, m
     cdef unsigned short[4096] mapping
     cdef unsigned int size, shift = 4
@@ -84,9 +80,6 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls, unsig
     cdef cnp.ndarray[DTYPE_t, ndim=1] atoms, neighbors
     cdef cnp.ndarray[DTYPE_t, ndim=2] distance
     cdef DTYPE_t d, attention
-
-    cdef object py_n
-    cdef dict py_mapping
 
     # read header
     if data[0] != 2:
@@ -98,12 +91,9 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls, unsig
     atoms_count = (a << 4| b >> 4) + add_cls
     cis_trans_count = (b & 0x0f) << 8 | c
 
-    py_mapping = _PyDict_NewPresized(atoms_count)
-
-    padded_count = atoms_count + padding
-    atoms = np.empty(padded_count, dtype=DTYPE)
-    neighbors = np.zeros(padded_count, dtype=DTYPE)
-    distance = np.full((padded_count, padded_count), 9999, dtype=DTYPE)  # fill with unreachable value
+    atoms = np.empty(atoms_count, dtype=DTYPE)
+    neighbors = np.zeros(atoms_count, dtype=DTYPE)
+    distance = np.full((atoms_count, atoms_count), 9999, dtype=DTYPE)  # fill with unreachable value
 
     # allocate memory
     connections = <unsigned char*> PyMem_Malloc(atoms_count * sizeof(unsigned char))
@@ -126,7 +116,6 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls, unsig
         a, b = data[shift], data[shift + 1]
         n = a << 4 | b >> 4
         mapping[n] = i
-        py_mapping[n] = i
         connections[i] = neighbors_count = b & 0x0f
         bonds_count += neighbors_count
 
@@ -187,13 +176,6 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls, unsig
             else:
                 distance[i, j] = distance[j, i] = d + 2
 
-    # disable attention on padding
-    for i in range(atoms_count, padded_count):
-        atoms[i] = 2  # set explicit hydrogen
-        for j in range(padded_count):
-            distance[i, j] = distance[j, i] = 0
-        distance[i, i] = 1  # self-attention of padding
-
     size = shift + order_count + 4 * cis_trans_count
     PyMem_Free(connections)
-    return atoms, neighbors, distance, size, py_mapping
+    return atoms, neighbors, distance, size

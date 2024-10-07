@@ -68,23 +68,23 @@ class EncoderLayer(Module):
     """
     def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1, activation=GELU, layer_norm_eps=1e-5,
                  norm_first: bool = False, attention: Type[Module] = GraphormerAttention, mlp: Type[Module] = MLP,
-                 projection_bias: bool = True, ff_bias: bool = True):
+                 norm_layer: Type[Module] = LayerNorm, projection_bias: bool = True, ff_bias: bool = True):
         super().__init__()
         self.self_attn = attention(d_model, nhead, dropout, projection_bias)
         self.mlp = mlp(d_model, dim_feedforward, dropout, activation, ff_bias)
 
-        self.norm1 = LayerNorm(d_model, eps=layer_norm_eps)
-        self.norm2 = LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm1 = norm_layer(d_model, eps=layer_norm_eps)
+        self.norm2 = norm_layer(d_model, eps=layer_norm_eps)
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
         self.norm_first = norm_first
         self._register_load_state_dict_pre_hook(_update)
 
-    def forward(self, x: Tensor, attn_mask: Optional[Tensor], pad_mask: Optional[Tensor] = None, *,
-                cache: Optional[Tuple[Tensor, Tensor]] = None,
-                need_embedding: bool = True, need_weights: bool = False) -> Tuple[Optional[Tensor], Optional[Tensor]]:
+    def forward(self, x: Tensor, attn_mask: Optional[Tensor], *,
+                need_embedding: bool = True, need_weights: bool = False,
+                **kwargs) -> Tuple[Optional[Tensor], Optional[Tensor]]:
         nx = self.norm1(x) if self.norm_first else x  # pre-norm or post-norm
-        e, a = self.self_attn(nx, attn_mask, pad_mask, cache=cache, need_weights=need_weights)
+        e, a = self.self_attn(nx, attn_mask, need_weights=need_weights, **kwargs)
 
         if need_embedding:
             x = x + self.dropout1(e)
@@ -96,4 +96,4 @@ class EncoderLayer(Module):
         return None, a
 
 
-__all__ = ['EncoderLayer']
+__all__ = ['EncoderLayer', 'MLP']

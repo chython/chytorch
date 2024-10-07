@@ -100,7 +100,7 @@ class GraphormerAttention(Module):
             self._register_load_state_dict_pre_hook(_update_packed)
         self.o_proj = Linear(embed_dim, embed_dim, bias=bias)
 
-    def forward(self, x: Tensor, attn_mask: Optional[Tensor], pad_mask: Optional[Tensor] = None, *,
+    def forward(self, x: Tensor, attn_mask: Tensor, *,
                 cache: Optional[Tuple[Tensor, Tensor]] = None,
                 need_weights: bool = False) -> Tuple[Tensor, Optional[Tensor]]:
         if self.separate_proj:
@@ -126,9 +126,7 @@ class GraphormerAttention(Module):
         v = v.unflatten(2, (self.num_heads, -1)).transpose(1, 2)
 
         # BxHxTxE @ BxHxExS > BxHxTxS
-        a = (q @ k) * self._scale
-        if attn_mask is not None:
-            a = a + attn_mask
+        a = (q @ k) * self._scale + attn_mask
         a = softmax(a, dim=-1)
         if self.training and self.dropout:
             a = dropout(a, self.dropout)
