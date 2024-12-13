@@ -27,9 +27,9 @@ from numpy.random import default_rng
 from torch import IntTensor, Size, zeros, ones as t_ones, int32 as t_int32, eye
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
 from typing import Sequence, Tuple, Union, NamedTuple
-from .._abc import default_collate_fn_map
 
 
 class ConformerDataPoint(NamedTuple):
@@ -53,7 +53,7 @@ class ConformerDataBatch(NamedTuple):
         return ConformerDataBatch(*(x.cuda(*args, **kwargs) for x in self))
 
 
-def collate_conformers(batch, *, padding_left: bool = False, collate_fn_map=None) -> ConformerDataBatch:
+def collate_conformers(batch, *, collate_fn_map=None) -> ConformerDataBatch:
     """
     Prepares batches of conformers.
 
@@ -62,12 +62,8 @@ def collate_conformers(batch, *, padding_left: bool = False, collate_fn_map=None
     atoms, hydrogens, distances = [], [], []
 
     for a, h, d in batch:
-        if padding_left:
-            atoms.append(a.flipud())
-            hydrogens.append(h.flipud())
-        else:
-            atoms.append(a)
-            hydrogens.append(h)
+        atoms.append(a)
+        hydrogens.append(h)
         distances.append(d)
 
     pa = pad_sequence(atoms, True)
@@ -75,12 +71,7 @@ def collate_conformers(batch, *, padding_left: bool = False, collate_fn_map=None
     tmp = eye(s, dtype=t_int32).repeat(b, 1, 1)  # prevent nan in MHA softmax on padding
     for i, d in enumerate(distances):
         s = d.size(0)
-        if padding_left:
-            tmp[i, -s:, -s:] = d
-        else:
-            tmp[i, :s, :s] = d
-    if padding_left:
-        return ConformerDataBatch(pa.fliplr(), pad_sequence(hydrogens, True).fliplr(), tmp)
+        tmp[i, :s, :s] = d
     return ConformerDataBatch(pa, pad_sequence(hydrogens, True), tmp)
 
 
@@ -144,10 +135,9 @@ class ConformerDataset(Dataset):
                 atoms = IntTensor(len(mol))
                 hydrogens = IntTensor(len(mol))
 
-            hgs = mol._hydrogens  # noqa
             for i, (n, a) in enumerate(mol.atoms(), self.add_cls):
                 atoms[i] = a.atomic_number + 2
-                hydrogens[i] = (hgs[n] or 0) + 2
+                hydrogens[i] = (a.implicit_hydrogens or 0) + 2
 
             xyz = empty((len(mol), 3))
             conformer = mol._conformers[0]  # noqa

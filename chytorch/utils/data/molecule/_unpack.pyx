@@ -79,13 +79,11 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls, unsig
 
     cdef cnp.ndarray[DTYPE_t, ndim=1] atoms, neighbors
     cdef cnp.ndarray[DTYPE_t, ndim=2] distance
-    cdef DTYPE_t d, attention
+    cdef DTYPE_t d
 
     # read header
     if data[0] != 2:
         raise ValueError('invalid pack version')
-
-    attention = 1 if components_attention else 0
 
     a, b, c = data[1], data[2], data[3]
     atoms_count = (a << 4| b >> 4) + add_cls
@@ -170,7 +168,7 @@ def unpack(const unsigned char[::1] data not None, unsigned short add_cls, unsig
             d = distance[i, j]
             if d == 9999:
                 # set attention between subgraphs
-                distance[i, j] = distance[j, i] = attention
+                distance[i, j] = distance[j, i] = components_attention
             elif d > max_distance:
                 distance[i, j] = distance[j, i] = max_distance + 2
             else:

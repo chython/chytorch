@@ -26,7 +26,8 @@ from .encoder import *
 from .rdkit import *
 
 
-__all__ = ['MoleculeDataset', 'MoleculeDataPoint', 'MoleculeDataBatch', 'collate_molecules',
+__all__ = ['MoleculeDataset', 'MoleculeDataPoint', 'MoleculeDataBatch',
+           'collate_molecules', 'left_padded_collate_molecules',
            'ConformerDataset', 'ConformerDataPoint', 'ConformerDataBatch', 'collate_conformers',
            'RDKitConformerDataset',
            'thiacalix_n_arene_dataset']

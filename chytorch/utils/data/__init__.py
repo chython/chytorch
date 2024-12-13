@@ -30,7 +30,7 @@ from .unpack import *
 from ._utils import *
 
 
-__all__ = ['MoleculeDataset', 'collate_molecules',
+__all__ = ['MoleculeDataset', 'collate_molecules', 'left_padded_collate_molecules',
            'ConformerDataset', 'collate_conformers',
            'ReactionEncoderDataset', 'collate_encoded_reactions',
            'RDKitConformerDataset',

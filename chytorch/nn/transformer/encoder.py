@@ -21,7 +21,7 @@
 # SOFTWARE.
 #
 from torch import Tensor, nn
-from torch.nn import Dropout, GELU, LayerNorm, Module
+from torch.nn import Dropout, GELU, LayerNorm, Module, SiLU
 from typing import Tuple, Optional, Type
 from warnings import warn
 from .attention import GraphormerAttention
@@ -52,6 +52,23 @@ class MLP(Module):
 
     def forward(self, x):
         return self.linear2(self.dropout(self.activation(self.linear1(x))))
+
+
+class LLaMAMLP(Module):
+    def __init__(self, d_model, dim_feedforward, dropout=0.1, activation=SiLU, bias: bool = False):
+        super().__init__()
+        self.linear1 = Linear(d_model, dim_feedforward, bias=bias)
+        self.linear2 = Linear(d_model, dim_feedforward, bias=bias)
+        self.linear3 = Linear(dim_feedforward, d_model, bias=bias)
+        self.dropout = Dropout(dropout)
+
+        # ad-hoc for resolving class from name
+        if isinstance(activation, str):
+            activation = getattr(nn, activation)
+        self.activation = activation()
+
+    def forward(self, x):
+        return self.linear3(self.dropout(self.activation(self.linear1(x))) * self.linear2(x))
 
 
 class EncoderLayer(Module):
@@ -96,4 +113,4 @@ class EncoderLayer(Module):
         return None, a
 
 
-__all__ = ['EncoderLayer', 'MLP']
+__all__ = ['EncoderLayer', 'MLP', 'LLaMAMLP']

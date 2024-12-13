@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2023, 2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -25,4 +25,6 @@ from .encoder import *
 
 
 __all__ = ['EncoderLayer',
+           'MLP',
+           'LLaMAMLP',
            'GraphormerAttention']

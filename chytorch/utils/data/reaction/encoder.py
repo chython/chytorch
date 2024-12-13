@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2021-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -25,10 +25,10 @@ from itertools import chain, repeat
 from torch import IntTensor, cat, zeros, int32, Size, eye
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from torch.utils.data._utils.collate import default_collate_fn_map
 from torchtyping import TensorType
 from typing import Sequence, Union, NamedTuple
 from ..molecule import MoleculeDataset
-from .._abc import default_collate_fn_map
 
 
 class ReactionEncoderDataPoint(NamedTuple):
@@ -54,7 +54,7 @@ class ReactionEncoderDataBatch(NamedTuple):
         return ReactionEncoderDataBatch(*(x.cuda(*args, **kwargs) for x in self))
 
 
-def collate_encoded_reactions(batch, *, padding_left: bool = False, collate_fn_map=None) -> ReactionEncoderDataBatch:
+def collate_encoded_reactions(batch, *, collate_fn_map=None) -> ReactionEncoderDataBatch:
     """
     Prepares batches of reactions.
 
@@ -62,14 +62,9 @@ def collate_encoded_reactions(batch, *, padding_left: bool = False, collate_fn_m
     """
     atoms, neighbors, distances, roles = [], [], [], []
     for a, n, d, r in batch:
-        if padding_left:
-            atoms.append(a.flipud())
-            neighbors.append(n.flipud())
-            roles.append(r.flipud())
-        else:
-            atoms.append(a)
-            neighbors.append(n)
-            roles.append(r)
+        atoms.append(a)
+        neighbors.append(n)
+        roles.append(r)
         distances.append(d)
 
     pa = pad_sequence(atoms, True)
@@ -77,13 +72,7 @@ def collate_encoded_reactions(batch, *, padding_left: bool = False, collate_fn_m
     tmp = eye(s, dtype=int32).repeat(b, 1, 1)  # prevent nan in MHA softmax on padding
     for n, d in enumerate(distances):
         s = d.size(0)
-        if padding_left:
-            tmp[n, -s:, -s:] = d
-        else:
-            tmp[n, :s, :s] = d
-    if padding_left:
-        return ReactionEncoderDataBatch(pa.fliplr(), pad_sequence(neighbors, True).fliplr(), tmp,
-                                        pad_sequence(roles, True).fliplr())
+        tmp[n, :s, :s] = d
     return ReactionEncoderDataBatch(pa, pad_sequence(neighbors, True), tmp, pad_sequence(roles, True))
 
 

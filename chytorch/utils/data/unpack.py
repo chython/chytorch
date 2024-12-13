@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2023, 2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -24,7 +24,7 @@ from functools import cached_property, partial
 from json import loads as json_loads
 from pickle import loads
 from struct import Struct
-from torch import Tensor, tensor, float32, Size
+from torch import Tensor, tensor, float32, Size, frombuffer
 from torch.utils.data import Dataset
 from typing import List, Tuple
 from zlib import decompress
@@ -79,7 +79,6 @@ class TensorUnpack(Dataset):
         self.shape = shape
 
     def __getitem__(self, item: int) -> Tensor:
-        from torch import frombuffer  # torch>=1.10
         x = frombuffer(self.data[item], dtype=self.dtype)
         if self.shape is not None:
             return x.reshape(self.shape)

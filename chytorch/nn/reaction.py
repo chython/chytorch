@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2023 Ramil Nugmanov <nougmanoff@protonmail.com>
+# Copyright 2021-2024 Ramil Nugmanov <nougmanoff@protonmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the “Software”), to deal
@@ -24,9 +24,9 @@ from math import inf
 from torch import zeros_like, float as t_float
 from torch.nn import Embedding, GELU, Module
 from torchtyping import TensorType
-from ..molecule import MoleculeEncoder
-from ..transformer import EncoderLayer
-from ...utils.data import ReactionEncoderDataBatch
+from .molecule import MoleculeEncoder
+from .transformer import EncoderLayer
+from ..utils.data import ReactionEncoderDataBatch
 
 
 class ReactionEncoder(Module):
