@@ -22,7 +22,9 @@
 #
 from itertools import repeat
 from torch.nn import GELU, Module, ModuleList, LayerNorm
-from torchtyping import TensorType
+import torch
+from jaxtyping import Float
+
 from typing import Tuple, Optional, List
 from warnings import warn
 from ._embedding import EmbeddingBag
@@ -112,9 +114,9 @@ class MoleculeEncoder(Module):
         self._register_load_state_dict_pre_hook(_update)
 
     def forward(self, batch: MoleculeDataBatch, /, *,
-                cache: Optional[List[Tuple[TensorType['batch', 'atoms+conditions', 'embedding'],
-                                           TensorType['batch', 'atoms+conditions', 'embedding']]]] = None) -> \
-            TensorType['batch', 'atoms', 'embedding']:
+                cache: Optional[List[Tuple[Float[torch.Tensor, "batch atoms+conditions embedding"],
+                                           Float[torch.Tensor, "batch atoms+conditions embedding"]]]] = None) -> \
+            Float[torch.Tensor, "batch atoms embedding"]:
         """
         Use 0 for padding.
         Atoms should be coded by atomic numbers + 2.

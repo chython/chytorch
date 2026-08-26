@@ -24,7 +24,9 @@ from math import nan
 from torch import bmm, no_grad, Tensor
 from torch.nn import Dropout, GELU, LayerNorm, LazyLinear, Linear, Module
 from torch.nn.functional import cross_entropy, softmax
-from torchtyping import TensorType
+import torch
+from jaxtyping import Float, Int
+
 from typing import Optional, Union
 from ._kfold import k_fold_mask
 
@@ -83,8 +85,8 @@ class VotingClassifier(Module):
             return x.view(-1, self._output, self._ensemble, self._n_classes)  # B x O x E x C
         return x  # B x E x C
 
-    def loss(self, x: TensorType['batch', 'embedding'],
-             y: Union[TensorType['batch', 1, int], TensorType['batch', 'output', int]],
+    def loss(self, x: Float[torch.Tensor, "batch embedding"],
+             y: Union[Int[torch.Tensor, "batch 1 int] TensorType[batch output"]],
              k_fold: Optional[int] = None, ignore_index: int = -100) -> Tensor:
         """
         Apply loss function to ensemble of predictions.
@@ -120,8 +122,8 @@ class VotingClassifier(Module):
         return self.loss_function(p, y)
 
     @no_grad()
-    def predict(self, x: TensorType['batch', 'embedding'], *,
-                k_fold: Optional[int] = None) -> Union[TensorType['batch', int], TensorType['batch', 'output', int]]:
+    def predict(self, x: Float[torch.Tensor, "batch embedding"], *,
+                k_fold: Optional[int] = None) -> Union[Int[torch.Tensor, "batch"], Int[torch.Tensor, "batch output"]]:
         """
         Average class prediction
 
@@ -130,9 +132,9 @@ class VotingClassifier(Module):
         return self.predict_proba(x, k_fold=k_fold).argmax(-1)  # B or B x O
 
     @no_grad()
-    def predict_proba(self, x: TensorType['batch', 'embedding'], *,
-                      k_fold: Optional[int] = None) -> Union[TensorType['batch', 'classes', float],
-                                                             TensorType['batch', 'output', 'classes', float]]:
+    def predict_proba(self, x: Float[torch.Tensor, "batch embedding"], *,
+                      k_fold: Optional[int] = None) -> Union[Float[torch.Tensor, "batch classes"],
+                                                             Float[torch.Tensor, "batch output classes"]]:
         """
         Average probability
 

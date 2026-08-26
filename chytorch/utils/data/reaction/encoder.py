@@ -26,23 +26,25 @@ from torch import IntTensor, cat, zeros, int32, Size, eye
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torch.utils.data._utils.collate import default_collate_fn_map
-from torchtyping import TensorType
+import torch
+from jaxtyping import Int
+
 from typing import Sequence, Union, NamedTuple
 from ..molecule import MoleculeDataset
 
 
 class ReactionEncoderDataPoint(NamedTuple):
-    atoms: TensorType['atoms', int]
-    neighbors: TensorType['atoms', int]
-    distances: TensorType['atoms', 'atoms', int]
-    roles: TensorType['atoms', int]
+    atoms: Int[torch.Tensor, "atoms"]
+    neighbors: Int[torch.Tensor, "atoms"]
+    distances: Int[torch.Tensor, "atoms atoms"]
+    roles: Int[torch.Tensor, "atoms"]
 
 
 class ReactionEncoderDataBatch(NamedTuple):
-    atoms: TensorType['batch', 'atoms', int]
-    neighbors: TensorType['batch', 'atoms', int]
-    distances: TensorType['batch', 'atoms', 'atoms', int]
-    roles: TensorType['batch', 'atoms', int]
+    atoms: Int[torch.Tensor, "batch atoms"]
+    neighbors: Int[torch.Tensor, "batch atoms"]
+    distances: Int[torch.Tensor, "batch atoms atoms"]
+    roles: Int[torch.Tensor, "batch atoms"]
 
     def to(self, *args, **kwargs):
         return ReactionEncoderDataBatch(*(x.to(*args, **kwargs) for x in self))

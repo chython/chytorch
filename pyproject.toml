@@ -29,7 +29,7 @@ include = [
 
 [tool.poetry.dependencies]
 python = '>=3.8,<3.12'
-torchtyping = '^0.1.4'
+jaxtyping = '>=0.2.19'
 chython = '^1.70'
 scipy = '^1.10'
 torch = '>=1.8'

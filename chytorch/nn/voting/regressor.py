@@ -24,7 +24,9 @@ from math import nan
 from torch import bmm, no_grad, Tensor
 from torch.nn import Dropout, GELU, LayerNorm, LazyLinear, Linear, Module
 from torch.nn.functional import smooth_l1_loss
-from torchtyping import TensorType
+import torch
+from jaxtyping import Float
+
 from typing import Optional, Union
 from ._kfold import k_fold_mask
 
@@ -81,8 +83,8 @@ class VotingRegressor(Module):
             return x.view(-1, self._output, self._ensemble)  # B x O x E
         return x  # B x E
 
-    def loss(self, x: TensorType['batch', 'embedding'],
-             y: Union[TensorType['batch', 1, float], TensorType['batch', 'output', float]],
+    def loss(self, x: Float[torch.Tensor, "batch embedding"],
+             y: Union[Float[torch.Tensor, "batch 1 float] TensorType[batch output"]],
              k_fold: Optional[int] = None) -> Tensor:
         """
         Apply loss function to ensemble of predictions.
@@ -110,9 +112,9 @@ class VotingRegressor(Module):
         return self.loss_function(p, y)
 
     @no_grad()
-    def predict(self, x: TensorType['batch', 'embedding'], *,
-                k_fold: Optional[int] = None) -> Union[TensorType['batch', float],
-                                                       TensorType['batch', 'output', float]]:
+    def predict(self, x: Float[torch.Tensor, "batch embedding"], *,
+                k_fold: Optional[int] = None) -> Union[Float[torch.Tensor, "batch"],
+                                                       Float[torch.Tensor, "batch output"]]:
         """
         Average prediction
 

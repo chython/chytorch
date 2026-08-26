@@ -23,7 +23,9 @@
 from math import inf
 from torch import zeros_like, float as t_float
 from torch.nn import Embedding, GELU, Module
-from torchtyping import TensorType
+import torch
+from jaxtyping import Float
+
 from .molecule import MoleculeEncoder
 from .transformer import EncoderLayer
 from ..utils.data import ReactionEncoderDataBatch
@@ -58,7 +60,7 @@ class ReactionEncoder(Module):
         """
         return self.molecule_encoder.max_distance
 
-    def forward(self, batch: ReactionEncoderDataBatch) -> TensorType['batch', 'atoms', 'embedding']:
+    def forward(self, batch: ReactionEncoderDataBatch) -> Float[torch.Tensor, "batch atoms embedding"]:
         """
         Use 0 for padding. Roles should be coded by 2 for reactants, 3 for products and 1 for special cls token.
         Distances - same as molecular encoder distances but batched diagonally.

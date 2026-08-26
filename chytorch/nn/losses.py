@@ -23,7 +23,9 @@
 from torch import float32, zeros_like, exp, Tensor
 from torch.nn import Parameter, MSELoss
 from torch.nn.modules.loss import _Loss
-from torchtyping import TensorType
+import torch
+from jaxtyping import Bool, Float
+
 
 
 class MultiTaskLoss(_Loss):
@@ -32,7 +34,7 @@ class MultiTaskLoss(_Loss):
 
     https://arxiv.org/abs/1705.07115
     """
-    def __init__(self, loss_type: TensorType['loss_type', bool], *, reduction='mean'):
+    def __init__(self, loss_type: Bool[torch.Tensor, "loss_type"], *, reduction='mean'):
         """
         :param loss_type: vector equal to the number of tasks losses. True for regression and False for classification.
         """
@@ -40,7 +42,7 @@ class MultiTaskLoss(_Loss):
         self.log = Parameter(zeros_like(loss_type, dtype=float32))
         self.register_buffer('coefficient', (loss_type + 1.).to(float32))
 
-    def forward(self, x: TensorType['loss', float]):
+    def forward(self, x: Float[torch.Tensor, "loss"]):
         """
         :param x: 1d vector of losses or 2d matrix of batch X losses.
         """

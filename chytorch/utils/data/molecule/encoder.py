@@ -28,21 +28,23 @@ from torch import IntTensor, Size, int32, ones, zeros, eye, empty, triu, Tensor,
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torch.utils.data._utils.collate import default_collate_fn_map
-from torchtyping import TensorType
+import torch
+from jaxtyping import Int
+
 from typing import Sequence, Union, NamedTuple, Tuple
 from zlib import decompress
 
 
 class MoleculeDataPoint(NamedTuple):
-    atoms: TensorType['atoms', int]
-    neighbors: TensorType['atoms', int]
-    distances: TensorType['atoms', 'atoms', int]
+    atoms: Int[torch.Tensor, "atoms"]
+    neighbors: Int[torch.Tensor, "atoms"]
+    distances: Int[torch.Tensor, "atoms atoms"]
 
 
 class MoleculeDataBatch(NamedTuple):
-    atoms: TensorType['batch', 'atoms', int]
-    neighbors: TensorType['batch', 'atoms', int]
-    distances: TensorType['batch', 'atoms', 'atoms', int]
+    atoms: Int[torch.Tensor, "batch atoms"]
+    neighbors: Int[torch.Tensor, "batch atoms"]
+    distances: Int[torch.Tensor, "batch atoms atoms"]
 
     def to(self, *args, **kwargs):
         return MoleculeDataBatch(*(x.to(*args, **kwargs) for x in self))
@@ -92,7 +94,7 @@ default_collate_fn_map[MoleculeDataPoint] = collate_molecules  # add auto_collat
 class MoleculeDataset(Dataset):
     def __init__(self, molecules: Sequence[Union[MoleculeContainer, bytes]], *,
                  add_cls: bool = True, cls_token: Union[int, Tuple[int, ...], Sequence[int], Sequence[Tuple[int, ...]],
-                     TensorType['cls', int], TensorType['dataset', 1, int], TensorType['dataset', 'cls', int]] = 1,
+                     Int[torch.Tensor, "cls"], Int[torch.Tensor, "dataset 1 int] TensorType[dataset cls"]] = 1,
                  max_distance: int = 10, max_neighbors: int = 14,
                  attention_schema: str = 'bert', components_attention: bool = True,
                  unpack: bool = False, compressed: bool = True, distance_cutoff=None):

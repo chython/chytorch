@@ -24,7 +24,9 @@ from math import nan
 from torch import sigmoid, no_grad
 from torch.nn import GELU
 from torch.nn.functional import binary_cross_entropy_with_logits
-from torchtyping import TensorType
+import torch
+from jaxtyping import Float, Int
+
 from typing import Union, Optional
 from ._kfold import k_fold_mask
 from .regressor import VotingRegressor
@@ -42,8 +44,8 @@ class BinaryVotingClassifier(VotingRegressor):
                          layer_norm_eps, loss_function, norm_first)
 
     @no_grad()
-    def predict(self, x: TensorType['batch', 'embedding'], *,
-                k_fold: Optional[int] = None) -> Union[TensorType['batch', int], TensorType['batch', 'output', int]]:
+    def predict(self, x: Float[torch.Tensor, "batch embedding"], *,
+                k_fold: Optional[int] = None) -> Union[Int[torch.Tensor, "batch"], Int[torch.Tensor, "batch output"]]:
         """
         Average class prediction
 
@@ -53,9 +55,9 @@ class BinaryVotingClassifier(VotingRegressor):
         return (self.predict_proba(x, k_fold=k_fold) > .5).long()
 
     @no_grad()
-    def predict_proba(self, x: TensorType['batch', 'embedding'], *,
-                      k_fold: Optional[int] = None) -> Union[TensorType['batch', float],
-                                                             TensorType['batch', 'output', float]]:
+    def predict_proba(self, x: Float[torch.Tensor, "batch embedding"], *,
+                      k_fold: Optional[int] = None) -> Union[Float[torch.Tensor, "batch"],
+                                                             Float[torch.Tensor, "batch output"]]:
         """
         Average probability
 
